@@ -3,7 +3,7 @@
 Contrato de `http://localhost:3000` para construir el frontend.
 
 La colección de Postman (`postman/My Collection.postman_collection.json`) ejercita todo
-lo de esta tabla: 28 peticiones y 49 aserciones. Es la fuente de verdad ejecutable.
+lo de esta tabla: 30 peticiones y 53 aserciones. Es la fuente de verdad ejecutable.
 
 ---
 

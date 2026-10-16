@@ -1,15 +1,26 @@
-# Spring Barber Shop - Backend API
+# Spring Barber Shop
 
-Plataforma SaaS de agendamiento y gestión operativa para barberías. Este proyecto provee una API RESTful robusta, segura y escalable para gestionar clientes, personal, catálogos de servicios, agendamiento de citas sin colisiones y un registro financiero mediante un sistema de saldo/monedero.
+Plataforma SaaS de agendamiento y gestión operativa para barberías. El repositorio incluye una **API RESTful** (backend) y una **interfaz web** (frontend) para gestionar clientes, personal, catálogo de servicios, agendamiento de citas sin colisiones, reseñas de clientes y el **cobro de las citas** (pago móvil con comprobante, o efectivo/tarjeta registrados por el administrador).
 
 ## 🚀 Tecnologías y Arquitectura
 
 El sistema está construido bajo el patrón de diseño **MVC** (Modelo-Vista-Controlador) orientado a APIs.
 
+**Backend**
+
 *   **Entorno:** Node.js
 *   **Framework:** Express.js
 *   **Base de Datos:** PostgreSQL (paquete `pg` con Pool de conexiones)
-*   **Seguridad:** Autenticación Stateless con JSON Web Tokens (JWT) y cifrado de contraseñas con `bcryptjs`.
+*   **Seguridad:** Autenticación Stateless con JSON Web Tokens (JWT) y cifrado de contraseñas con `bcryptjs`
+*   **Subida de archivos:** `multer` (fotos de barbero y comprobantes de pago)
+
+**Frontend**
+
+*   **Librería:** React 19
+*   **Bundler / Dev server:** Vite
+*   **Estilos:** Tailwind CSS
+*   **Ruteo:** React Router
+*   **Cliente HTTP:** Axios
 
 ## 📋 Prerrequisitos
 
@@ -81,11 +92,11 @@ Crea el esquema completo. **Paso obligatorio**: sin él el servidor arranca pero
 las peticiones devuelven `500` con `relation does not exist`.
 
 ```
-Aplicando 7 de 7 migraciones:
+Aplicando 12 de 12 migraciones:
   000_esquema_base.sql ... ok
   ...
-  006_modulo_transacciones.sql ... ok
-7 migración(es) aplicada(s).
+  011_modulo_pagos.sql ... ok
+12 migración(es) aplicada(s).
 ```
 
 Para consultar el estado: `npm run migrate:status`.
@@ -111,6 +122,20 @@ curl http://localhost:3000/
 
 O abre `postman/My Collection.postman_collection.json` en Postman y pulsa **Run**.
 Si los 30 pasos y 53 aserciones quedan en verde, el backend está correcto.
+
+### 8. Levantar la interfaz web (opcional)
+
+La interfaz vive en `frontend/` y consume la API del backend. Necesita que el backend
+esté corriendo en `http://localhost:3000`.
+
+```bash
+cd ../frontend
+npm install
+npm run dev
+```
+
+Queda disponible en **http://localhost:5173**. Para generar el build de producción:
+`npm run build` (salida en `frontend/dist/`).
 
 ## ⚠️ Si algo falla
 
@@ -138,17 +163,18 @@ variable revisar:
 
 ## 🗄️ Esquema de Base de Datos
 
-El núcleo opera sobre 7 entidades con integridad referencial estricta y restricciones UNIQUE y CHECK:
+El núcleo opera sobre 8 entidades con integridad referencial estricta y restricciones UNIQUE y CHECK:
 
 | Entidad | Descripción |
 |---|---|
 | `usuario` | Autenticación y roles |
-| `barbero` | Perfiles operativos |
+| `barbero` | Perfiles operativos (incluye datos públicos: descripción, especialidad, Instagram, teléfono y foto) |
 | `servicios` | Catálogo de prestaciones |
-| `cita` | Eje transaccional de agendamiento |
+| `cita` | Eje transaccional de agendamiento (admite citas de invitado sin cuenta) |
 | `horario_laboral` | Gestión de jornadas y turnos |
 | `barbero_servicio` | Relación dinámica de habilidades del personal |
-| `transacciones` | Sistema de monedero/saldo para el modelo de negocio |
+| `resena` | Calificaciones (medias estrellas) y comentarios de clientes sobre barberos |
+| `transacciones` | Cobro de las citas: pago móvil con comprobante, o efectivo/tarjeta en local |
 
 ### Migraciones
 
@@ -170,6 +196,11 @@ Las migraciones son idempotentes: se pueden reaplicar sin efectos duplicados. Pa
 | 004 | `004_modulo_horario_laboral.sql` | `UNIQUE` y CHECKs de `horario_laboral` |
 | 005 | `005_modulo_barbero_servicio.sql` | `UNIQUE` del par en `barbero_servicio` |
 | 006 | `006_modulo_transacciones.sql` | `fecha_creacion` con `DEFAULT now()` y `NOT NULL` |
+| 007 | `007_perfil_barbero.sql` | Perfil público del barbero: descripción, especialidad, Instagram, teléfono y foto |
+| 008 | `008_cita_invitado.sql` | `cita.clienteID` opcional + `contacto_nombre`/`contacto_telefono` para citas de invitado |
+| 009 | `009_modulo_resena.sql` | Tabla `resena` (calificación + comentario por cliente y barbero) |
+| 010 | `010_resena_media_estrella.sql` | `resena.calificacion` a `numeric(2,1)`: admite medias estrellas (0.5–5.0) |
+| 011 | `011_modulo_pagos.sql` | Extiende `transacciones` con `estado`, `metodo`, `comprobante`, `citaID` y `motivo_rechazo` |
 
 ### Aplicación manual (opcional)
 
@@ -183,7 +214,12 @@ psql -U postgres -d spring_barber_shop \
   -f backend/migrations/003_constraints_unique.sql \
   -f backend/migrations/004_modulo_horario_laboral.sql \
   -f backend/migrations/005_modulo_barbero_servicio.sql \
-  -f backend/migrations/006_modulo_transacciones.sql
+  -f backend/migrations/006_modulo_transacciones.sql \
+  -f backend/migrations/007_perfil_barbero.sql \
+  -f backend/migrations/008_cita_invitado.sql \
+  -f backend/migrations/009_modulo_resena.sql \
+  -f backend/migrations/010_resena_media_estrella.sql \
+  -f backend/migrations/011_modulo_pagos.sql
 ```
 
 ## 📡 Endpoints Principales
@@ -193,14 +229,50 @@ Todas las respuestas de la API utilizan un formato JSON estandarizado: `{ "ok": 
 | Módulo | Endpoint | Método | Protección | Descripción |
 |---|---|---|---|---|
 | Auth | `/api/auth/login` | POST | Pública | Inicia sesión y retorna JWT |
-| Usuarios | `/api/usuarios` | GET, POST | Pública/JWT | CRUD de clientes/empleados |
-| Servicios | `/api/servicios` | GET, POST | Pública/JWT | Catálogo de prestaciones |
-| Barberos | `/api/barberos` | GET, POST | Pública/JWT | Gestión de personal operativo |
-| Horarios | `/api/horarios` | POST | Barbero/Admin | Configura la jornada laboral |
-| Citas | `/api/citas` | POST | Autenticado | Crea cita validando disponibilidad y horario |
-| Citas | `/api/citas/:id/estado` | PUT | Barbero/Admin | Modifica el estado (pendiente, completada, etc.) |
-| B-Servicio | `/api/barbero-servicios` | POST, DELETE | Barbero/Admin | Asigna o desvincula servicios a un barbero |
-| Finanzas | `/api/transacciones` | GET, POST | Barbero/Admin | Registra movimientos en el saldo del usuario |
+| Auth | `/api/auth/me` | GET | JWT | Devuelve el usuario del token |
+| Auth | `/api/auth/recuperar` | POST | Pública | Restablece la contraseña |
+| Usuarios | `/api/usuarios` | GET, POST, PUT, DELETE | Pública/JWT | CRUD de clientes y empleados |
+| Usuarios | `/api/usuarios/perfil` | PUT | JWT | Actualiza el perfil propio |
+| Servicios | `/api/servicios` | GET, POST, PUT, DELETE | Pública/JWT | Catálogo de prestaciones |
+| Barberos | `/api/barberos` | GET, POST, PUT | Pública/JWT | Personal operativo (incluye perfil público) |
+| Barberos | `/api/barberos/:id/foto` | POST | Barbero/Admin | Sube la foto de perfil (multipart) |
+| Reseñas | `/api/barberos/:id/resenas` | GET, POST | Pública/JWT | Lista / crea reseñas de un barbero (medias estrellas) |
+| Reseñas | `/api/barberos/resenas` | GET | Admin | Lista todas las reseñas |
+| Reseñas | `/api/barberos/resenas/:resenaID` | DELETE | Admin | Elimina (modera) una reseña |
+| Horarios | `/api/horarios` | GET, POST, DELETE | Barbero/Admin | Configura la jornada laboral |
+| Citas | `/api/citas` | GET, POST | Autenticado | Lista / crea citas validando disponibilidad y horario |
+| Citas | `/api/citas/:id` | PUT | Admin/Cliente | Reprograma (cambia fecha/hora) una cita |
+| Citas | `/api/citas/:id/estado` | PUT | Autenticado | Modifica el estado (pendiente, completada, cancelada…) |
+| Citas | `/api/citas/publica` | POST | Pública | Reserva de invitado sin cuenta; devuelve un código |
+| Citas | `/api/citas/publica/:codigo` | GET, PUT | Pública | Consulta o cancela una reserva por su código |
+| Citas | `/api/citas/ocupados` | GET | Pública | Franjas ocupadas para el calendario |
+| B-Servicio | `/api/barbero-servicios` | GET, POST, DELETE | Barbero/Admin | Asigna o desvincula servicios a un barbero |
+| Pagos | `/api/transacciones` | GET, POST | Admin/Cliente | Lista y registra pagos (pago móvil con comprobante) |
+| Pagos | `/api/transacciones/:id` | GET | Admin/Cliente | Consulta un pago |
+| Pagos | `/api/transacciones/:id/aprobar` | PUT | Admin | Aprueba un pago móvil pendiente |
+| Pagos | `/api/transacciones/:id/rechazar` | PUT | Admin | Rechaza un pago indicando el motivo |
+| Estadísticas | `/api/estadisticas/resumen` | GET | Admin | Métricas del dashboard |
+
+> El contrato completo (cuerpos, validaciones y ejemplos) está en [`documentacion/API.md`](documentacion/API.md).
+
+### Pagos
+
+Cada cita se cobra con una fila en `transacciones`, ligada por `citaID`:
+
+*   **Pago móvil** (`metodo_pago: "pago_movil"`): el cliente sube un **comprobante**
+    (imagen JPG/PNG/WEBP/GIF, máximo 5 MB) en el campo `comprobante` y una referencia;
+    el pago queda **`pendiente`** hasta que un administrador lo **aprueba** o **rechaza**.
+*   **Efectivo / tarjeta** (`metodo_pago: "efectivo"` o `"tarjeta"`): los registra el
+    **administrador** en el local y quedan **`completado`** de inmediato.
+
+Reglas: un cliente solo puede pagar **sus propias citas** (y no una `cancelada`); un
+cliente solo puede usar `pago_movil`; si ya existe un pago vigente para la cita, un
+nuevo intento responde `409`; tras un rechazo se puede reintentar. El `monto` es
+opcional y por defecto toma el `precio` del servicio.
+
+> **Importante al subir el comprobante:** la petición va como `multipart/form-data` y
+> hay que **no** forzar `Content-Type: application/json` (axios descartaría el archivo).
+> El servidor guarda los archivos en `backend/uploads/`.
 
 ### Flujo de autenticación
 
@@ -264,18 +336,31 @@ Luego inicia sesión con ese usuario para obtener el token de administrador.
 
 ```
 backend/
-├── migrations/           # Archivos SQL idempotentes (000–006)
+├── migrations/           # Archivos SQL idempotentes (000–011)
 ├── scripts/
 │   └── migrate.js        # Runner de migraciones
 ├── src/
-│   ├── config/           # db.js (Pool pg), jwt.js (firma/verificación)
+│   ├── config/           # db.js (Pool pg), jwt.js (firma/verificación), upload.js (multer)
 │   ├── controllers/      # Lógica de cada módulo
 │   ├── middlewares/      # authMiddleware.js (verificación JWT)
 │   ├── routes/           # Definición de rutas por módulo
 │   └── app.js            # Punto de entrada, montaje de middlewares
+├── uploads/              # Fotos de barbero y comprobantes de pago (ignorado por git)
 ├── .env.example          # Plantilla de variables de entorno
 ├── .env                  # Credenciales locales (ignorado por git)
 └── package.json
+
+frontend/
+├── src/
+│   ├── api/              # Clientes axios por módulo
+│   ├── components/       # Componentes reutilizables
+│   ├── pages/            # Vistas (públicas, cliente, barbero y admin/)
+│   ├── ui/               # Estilos base y primitivos
+│   └── App.jsx           # Ruteo de la SPA
+└── package.json
+
+postman/                  # Colección E2E
+documentacion/API.md      # Contrato detallado de la API
 ```
 
 ## ⚠️ Manejo de Errores
@@ -323,7 +408,7 @@ Dos cosas que conviene tener presentes al desplegar:
 ## Pruebas E2E
 
 La colección de Postman (`postman/My Collection.postman_collection.json`) recorre
-los 8 módulos con 28 peticiones y 49 aserciones: el flujo completo, los 401 sin
+los 8 módulos con 30 peticiones y 53 aserciones: el flujo completo, los 401 sin
 token, los 403 por rol insuficiente, los 400 de validación, los 404 y los casos de
 conflicto (correo duplicado, barbero repetido, cita solapada, cita fuera de
 horario).
