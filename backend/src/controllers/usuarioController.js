@@ -75,10 +75,32 @@ const crearUsuario = async (req, res) => {
 
     const resultado = await db.query(query, valores);
 
+    // Si es un cliente que se registra, se vinculan las citas de invitado hechas
+    // antes con ese mismo teléfono (reservas sin cuenta), para que las vea en
+    // "Mis citas". Se compara solo por dígitos.
+    const rolFinal = resultado.rows[0].rol;
+    let citasVinculadas = 0;
+    if (rolFinal === 'cliente') {
+      try {
+        const vinculadas = await db.query(
+          `UPDATE cita SET "clienteID" = $1
+           WHERE "clienteID" IS NULL
+             AND regexp_replace(COALESCE(contacto_telefono, ''), '\\D', '', 'g')
+                 = regexp_replace($2, '\\D', '', 'g')`,
+          [resultado.rows[0].usuarioID, telefono]
+        );
+        citasVinculadas = vinculadas.rowCount;
+      } catch (errorVinculo) {
+        // No es fatal: el usuario ya quedó creado. Solo se registra el fallo.
+        console.error('No se pudieron vincular citas de invitado:', errorVinculo.message);
+      }
+    }
+
     res.status(201).json({
       ok: true,
       message: 'Usuario creado exitosamente',
-      usuario: resultado.rows[0]
+      usuario: resultado.rows[0],
+      citasVinculadas
     });
   } catch (error) {
     console.error('Error al crear usuario:', error);
@@ -173,10 +195,99 @@ const eliminarUsuario = async (req, res) => {
 };
 
 
+// 6. Actualizar el propio perfil (autoservicio). A diferencia de `actualizarUsuario`
+//    (endpoint de staff), aquí el usuario solo toca SU fila: el `usuarioID` sale del
+//    token, nunca del cuerpo, así que no puede editar a nadie más ni cambiarse el rol.
+//    El cambio de contraseña exige además la contraseña actual.
+const actualizarMiPerfil = async (req, res) => {
+  const usuarioId = req.usuario.usuarioID;
+  const { nombre, apellido, correo, telefono } = req.body || {};
+  // `clave`/`password` se aceptan como alias de `claveNueva` por comodidad del cliente.
+  const claveNueva = req.body?.claveNueva || req.body?.clave || req.body?.password;
+  const claveActual = req.body?.claveActual;
+
+  try {
+    if (correo !== undefined && String(correo).trim() === '') {
+      return res.status(400).json({ ok: false, message: 'El correo no puede quedar vacío' });
+    }
+    if (telefono !== undefined && String(telefono).trim() === '') {
+      return res.status(400).json({ ok: false, message: 'El teléfono no puede quedar vacío' });
+    }
+    if (nombre !== undefined && String(nombre).trim() === '') {
+      return res.status(400).json({ ok: false, message: 'El nombre no puede quedar vacío' });
+    }
+    if (apellido !== undefined && String(apellido).trim() === '') {
+      return res.status(400).json({ ok: false, message: 'El apellido no puede quedar vacío' });
+    }
+
+    const actualRes = await db.query('SELECT clave FROM usuario WHERE "usuarioID" = $1', [usuarioId]);
+    if (actualRes.rows.length === 0) {
+      return res.status(404).json({ ok: false, message: 'Usuario no encontrado' });
+    }
+
+    // Solo se hashea si se pidió cambiar la contraseña; si no, el COALESCE conserva
+    // la que ya tenía.
+    let claveHasheada = null;
+    if (claveNueva) {
+      if (String(claveNueva).length < 6) {
+        return res.status(400).json({ ok: false, message: 'La nueva contraseña debe tener al menos 6 caracteres' });
+      }
+      if (!claveActual) {
+        return res.status(400).json({ ok: false, message: 'Indica tu contraseña actual para cambiarla' });
+      }
+      // Las cuentas antiguas pueden tener la clave en texto plano; se aceptan y
+      // quedan migradas al guardar el nuevo hash.
+      const claveGuardada = actualRes.rows[0].clave;
+      const esHashBcrypt = /^\$2[aby]\$\d{2}\$/.test(claveGuardada);
+      const actualValida = esHashBcrypt
+        ? await bcrypt.compare(String(claveActual), claveGuardada)
+        : String(claveActual) === claveGuardada;
+      if (!actualValida) {
+        return res.status(403).json({ ok: false, message: 'La contraseña actual no es correcta' });
+      }
+      claveHasheada = await bcrypt.hash(String(claveNueva), 10);
+    }
+
+    const resultado = await db.query(
+      `
+        UPDATE usuario
+        SET nombre   = COALESCE($1, nombre),
+            apellido = COALESCE($2, apellido),
+            correo   = COALESCE($3, correo),
+            telefono = COALESCE($4, telefono),
+            clave    = COALESCE($5, clave)
+        WHERE "usuarioID" = $6
+        RETURNING "usuarioID", nombre, apellido, correo, telefono, rol
+      `,
+      [
+        nombre === undefined ? null : String(nombre).trim(),
+        apellido === undefined ? null : String(apellido).trim(),
+        correo === undefined ? null : String(correo).trim(),
+        telefono === undefined ? null : String(telefono).trim(),
+        claveHasheada,
+        usuarioId
+      ]
+    );
+
+    res.json({
+      ok: true,
+      message: 'Perfil actualizado exitosamente',
+      usuario: resultado.rows[0]
+    });
+  } catch (error) {
+    console.error('Error al actualizar el perfil:', error);
+    if (error.code === '23505') {
+      return res.status(400).json({ ok: false, message: 'Ese correo ya está registrado por otra cuenta' });
+    }
+    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+  }
+};
+
 module.exports = {
   obtenerUsuarios,
   obtenerUsuarioPorId,
   crearUsuario,
   actualizarUsuario,
-  eliminarUsuario
+  eliminarUsuario,
+  actualizarMiPerfil
 };

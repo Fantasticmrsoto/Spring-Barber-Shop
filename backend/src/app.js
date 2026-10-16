@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
 
 // Módulos de rutas
@@ -11,6 +12,7 @@ const authRoutes = require('./routes/authRoutes');
 const horarioRoutes = require('./routes/horarioRoutes');
 const barberoServicioRoutes = require('./routes/barberoServicioRoutes');
 const transaccionRoutes = require('./routes/transaccionRoutes');
+const estadisticaRoutes = require('./routes/estadisticaRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,6 +20,9 @@ const PORT = process.env.PORT || 3000;
 // Middlewares
 app.use(cors());
 app.use(express.json());
+
+// Archivos subidos (fotos de perfil de los barberos)
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Rutas de la API
 app.use('/api/usuarios', usuarioRoutes);
@@ -28,6 +33,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/horarios', horarioRoutes);
 app.use('/api/barbero-servicios', barberoServicioRoutes);
 app.use('/api/transacciones', transaccionRoutes);
+app.use('/api/estadisticas', estadisticaRoutes);
 
 // Ruta base
 app.get('/', (req, res) => {
