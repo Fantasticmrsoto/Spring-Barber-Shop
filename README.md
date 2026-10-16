@@ -101,6 +101,42 @@ Aplicando 12 de 12 migraciones:
 
 Para consultar el estado: `npm run migrate:status`.
 
+#### Cargar datos de demostración (opcional)
+
+Recién migrada, la base está **vacía**: no hay administrador, ni servicios, ni
+barberos, así que la landing sale en blanco y no se puede reservar. Para dejarla
+poblada y poder probar todo enseguida:
+
+```bash
+npm run seed
+```
+
+Crea (de forma **idempotente**, no borra nada) un administrador, un cliente de
+ejemplo, tres barberos con su perfil público, seis servicios, la relación
+barbero↔servicio y un horario de lunes a sábado de 09:00 a 18:00. Si vuelves a
+ejecutarlo no duplica nada.
+
+```
+  Datos de demostración listos:
+
+    Usuarios nuevos:            5
+    Servicios nuevos:           6
+    Barberos nuevos:            3
+    Servicios por barbero:      18
+    Franjas de horario:         18
+
+  Acceso de administrador:
+    correo:     admin@springbarber.com
+    contraseña: Admin123
+
+  Acceso de cliente:
+    correo:     cliente@springbarber.com
+    contraseña: Cliente123
+```
+
+> Son credenciales de ejemplo, **cámbialas antes de usarlas en producción**. Para
+> partir de cero otra vez, recrea una base vacía y repite `npm run migrate`.
+
 ### 6. Arrancar el servidor
 
 ```bash
@@ -332,13 +368,17 @@ curl -X POST http://localhost:3000/api/usuarios \
 
 Luego inicia sesión con ese usuario para obtener el token de administrador.
 
+> Atajo: `npm run seed` (ver arriba) crea un administrador `admin@springbarber.com`
+> / `Admin123` junto con servicios, barberos y horarios de demostración.
+
 ## 📁 Estructura del Proyecto
 
 ```
 backend/
 ├── migrations/           # Archivos SQL idempotentes (000–011)
 ├── scripts/
-│   └── migrate.js        # Runner de migraciones
+│   ├── migrate.js        # Runner de migraciones
+│   └── seed.js           # Datos de demostración (npm run seed)
 ├── src/
 │   ├── config/           # db.js (Pool pg), jwt.js (firma/verificación), upload.js (multer)
 │   ├── controllers/      # Lógica de cada módulo
