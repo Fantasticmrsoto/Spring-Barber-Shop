@@ -1,0 +1,132 @@
+name: Pruebas E2E con Newman y Postman
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test-api:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: barberia_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_HOST: localhost
+      DB_USER: postgres
+      DB_PASSWORD: password
+      DB_NAME: barberia_test
+      DB_PORT: 5432
+      PORT: 3000
+      # El login emite y verifica JWT con este secreto; la colección E2E no puede
+      # arrancar sin él, porque config/jwt.js falla al cargar si no está definido.
+      JWT_SECRET: clave-solo-para-ci
+
+    steps:
+      - name: Descargar código del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependencias del backend
+        working-directory: ./backend
+        run: npm install
+
+      # Sin este paso el servicio postgres arranca vacío y toda petición devuelve
+      # 500 por "relation ... does not exist".
+      - name: Aplicar migraciones
+        working-directory: ./backend
+        run: npm run migrate
+
+      - name: Iniciar el backend
+        working-directory: ./backend
+        run: |
+          npm start > server.log 2>&1 &
+          echo "servidor lanzado, log en backend/server.log"
+
+      # Un sleep fijo es frágil: el arranque abre la conexión a PostgreSQL y puede
+      # tardar más de lo esperado. Se espera a que el servidor responda de verdad.
+      - name: Esperar a que la API esté lista
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf "http://localhost:3000/" > /dev/null; then
+              echo "API lista tras ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::La API no respondió en 30 segundos"
+          echo "--- log del servidor ---"
+          cat backend/server.log 2>/dev/null || true
+          exit 1
+
+      # `set -o pipefail` es imprescindible: sin él, el `tee` se queda con el exit
+      # code 0 y una suite fallida se reportaría como verde.
+      - name: Ejecutar la colección con Newman
+        run: |
+          set -o pipefail
+          npx --yes newman run "postman/My Collection.postman_collection.json" \
+            --env-var "base_url=http://localhost:3000" \
+            --reporters cli \
+            --color off 2>&1 | tee newman-report.txt
+
+      # El informe HTML es un extra, no la garantía. newman-reporter-html solo
+      # declara peer de newman@4 y el proyecto usa newman@6, así que se instala con
+      # --legacy-peer-deps. Si algún día deja de funcionar, el paso falla pero la
+      # suite ya se ejecutó y su salida quedó en newman-report.txt.
+      - name: Generar informe HTML (opcional)
+        continue-on-error: true
+        run: |
+          npx --yes \
+            --package newman@6.2.2 \
+            --package newman-reporter-html \
+            --legacy-peer-deps \
+            newman run "postman/My Collection.postman_collection.json" \
+            --env-var "base_url=http://localhost:3000" \
+            --reporters cli,html \
+            --reporter-html-export newman-report.html \
+            --color off > /dev/null 2>&1
+          if [ -f newman-report.html ]; then
+            echo "Informe HTML generado ($(wc -c < newman-report.html) bytes)"
+          else
+            echo "::warning::No se pudo generar el informe HTML; se sube el log de texto"
+          fi
+
+      # `error` en vez de `ignore`: antes, si el informe no se generaba el paso
+      # pasaba en verde sin hacer nada, y el run parecía correcto sin artefacto.
+      - name: Publicar el log de la suite
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: newman-report
+          path: newman-report.txt
+          if-no-files-found: error
+
+      - name: Publicar el informe HTML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: newman-report-html
+          path: newman-report.html
+          if-no-files-found: ignore
+
+      - name: Mostrar log del servidor si falló la suite
+        if: failure()
+        run: cat backend/server.log 2>/dev/null || echo "sin log del servidor"
