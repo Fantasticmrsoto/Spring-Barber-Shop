@@ -220,6 +220,37 @@ app.use((req, res) => {
 });
 
 /*
+ * Manejador de errores global.
+ *
+ * Los controladores capturan sus excepciones, pero no todas las que se escapan
+ * llegan aquí: un `req.body` undefined, un JSON mal formado o un error
+ * asíncrono sin `await` terminan en el manejador por defecto de Express, que
+ * devuelve **HTML** (con el stack trace en desarrollo).
+ *
+ * Eso rompe el contrato de la API ("siempre JSON con ok") y hace que el
+ * frontend muestre "No se pudo conectar con el servidor" en lugar del mensaje
+ * real. Aquí se garantiza que cualquier excepción ends en JSON.
+ */
+app.use((err, req, res, next) => {
+  console.error(`❌ Excepción no controlada en ${req.method} ${req.originalUrl}:`, err.message);
+
+  // Si la respuesta ya empezó a enviarse, no se puede cambiar: se corta la
+  // conexión para que el cliente lo detecte.
+  if (res.headersSent) return next(err);
+
+  const status = Number(err.status || err.statusCode) || 500;
+  res.status(status).json({
+    ok: false,
+    // Los errores de negocio (un 400 con un mensaje pensado para el usuario)
+    // se devuelven tal cual; el resto, un mensaje genérico.
+    error:
+      status < 500 && err.message
+        ? err.message
+        : 'Error interno del servidor',
+  });
+});
+
+/*
  * Migraciones automáticas al arrancar.
  *
  * Una base de datos recién creada (Neon, Render Postgres, un `CREATE DATABASE`

@@ -14,7 +14,7 @@ const obtenerUsuarios = async (req, res) => {
       usuarios: resultado.rows
     });
   } catch (error) {
-    errorInterno(res, error);
+    errorInterno(res, error, 'Obtener Usuarios');
   }
 };
 
@@ -42,7 +42,7 @@ const obtenerUsuarioPorId = async (req, res) => {
 
     res.json({ ok: true, usuario: resultado.rows[0] });
   } catch (error) {
-    errorInterno(res, error);
+    errorInterno(res, error, 'Obtener Usuario Por Id');
   }
 };
 
@@ -58,6 +58,15 @@ const crearUsuario = async (req, res) => {
     return res.status(400).json({
       ok: false,
       message: 'Nombre, apellido, correo, teléfono y clave son obligatorios'
+    });
+  }
+
+  // bcrypt solo acepta cadenas: con un número, `hash` lanza "Illegal
+  // arguments" y la petición acaba en un 500 en vez de un 400.
+  if (typeof clave !== 'string') {
+    return res.status(400).json({
+      ok: false,
+      message: 'La clave debe ser un texto'
     });
   }
 
@@ -83,7 +92,7 @@ const crearUsuario = async (req, res) => {
     if (error.code === '23505') {
       return res.status(400).json({ ok: false, message: 'El correo electrónico ya está registrado' });
     }
-    errorInterno(res, error);
+    errorInterno(res, error, 'Crear Usuario');
   }
 };
 
@@ -101,6 +110,14 @@ const actualizarUsuario = async (req, res) => {
     return res.status(400).json({
       ok: false,
       message: 'El ID del usuario debe ser un número entero válido'
+    });
+  }
+
+  // bcrypt solo acepta cadenas (ver crearUsuario).
+  if (clave !== undefined && clave !== null && typeof clave !== 'string') {
+    return res.status(400).json({
+      ok: false,
+      message: 'La clave debe ser un texto'
     });
   }
 
@@ -132,7 +149,7 @@ const actualizarUsuario = async (req, res) => {
       usuario: resultado.rows[0]
     });
   } catch (error) {
-    errorInterno(res, error);
+    errorInterno(res, error, 'Actualizar Usuario');
   }
 };
 
@@ -164,7 +181,7 @@ const eliminarUsuario = async (req, res) => {
       usuarioID: resultado.rows[0].usuarioID
     });
   } catch (error) {
-    errorInterno(res, error);
+    errorInterno(res, error, 'Eliminar Usuario');
   }
 };
 

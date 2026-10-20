@@ -14,10 +14,21 @@ const login = async (req, res) => {
     });
   }
 
+  // bcrypt exige cadenas: con un número, `compare` lanza "Illegal arguments" y
+  // la petición acaba en un 500 en vez de un 400.
+  if (typeof correo !== 'string' || typeof password !== 'string') {
+    return res.status(400).json({
+      ok: false,
+      message: 'El correo y la contraseña son obligatorios'
+    });
+  }
+
   try {
-    // Buscar el usuario por su correo
+    // Buscar el usuario por su correo. Se trae también `apellido` porque la
+    // respuesta lo usa: sin él, `apellido` quedaba como undefined y al
+    // serializar el JSON se omitía el campo entero.
     const resultado = await db.query(
-      'SELECT "usuarioID", nombre, correo, clave, rol FROM usuario WHERE correo = $1',
+      'SELECT "usuarioID", nombre, apellido, correo, clave, rol FROM usuario WHERE correo = $1',
       [correo]
     );
 
@@ -70,7 +81,7 @@ const login = async (req, res) => {
     });
 
   } catch (error) {
-    errorInterno(res, error);
+    errorInterno(res, error, 'Login');
   }
 };
 
@@ -98,7 +109,7 @@ const obtenerPerfil = async (req, res) => {
 
     res.json({ ok: true, usuario: resultado.rows[0] });
   } catch (error) {
-    errorInterno(res, error);
+    errorInterno(res, error, 'Obtener Perfil');
   }
 };
 

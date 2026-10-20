@@ -15,7 +15,7 @@ const obtenerServicios = async (req, res) => {
       servicios: resultado.rows
     });
   } catch (error) {
-    errorInterno(res, error);
+    errorInterno(res, error, 'Obtener Servicios');
   }
 };
 
@@ -41,13 +41,16 @@ const obtenerServicioPorId = async (req, res) => {
     }
     res.json({ ok: true, servicio: resultado.rows[0] });
   } catch (error) {
-    errorInterno(res, error);
+    errorInterno(res, error, 'Obtener Servicio Por Id');
   }
 };
 
 // 3. Crear un nuevo servicio
 const crearServicio = async (req, res) => {
-  const { nombre, descripcion, precio, duracion_minutos } = req.body;
+  // Sin la guarda `|| {}`, una petición sin cuerpo deja `req.body` como
+  // undefined en Express 5 y el destructuring revienta con un TypeError
+  // (500 en HTML) en vez de un 400 con mensaje.
+  const { nombre, descripcion, precio, duracion_minutos } = req.body || {};
   const precioNumerico = Number(precio);
   const duracionMinutos = Number(duracion_minutos);
 
@@ -56,6 +59,10 @@ const crearServicio = async (req, res) => {
     typeof descripcion !== 'string' || !descripcion.trim() ||
     precio === null || precio === '' ||
     !Number.isFinite(precioNumerico) || precioNumerico < 0 ||
+    // El máximo de numeric(10,2). Sin esta comprobación, un precio enorme
+    // pasa la validación y PostgreSQL responde con "numeric field overflow",
+    // que es un 500 en vez de un 400.
+    precioNumerico > 99999999.99 ||
     !Number.isInteger(duracionMinutos) || duracionMinutos <= 0
   ) {
     return res.status(400).json({
@@ -79,7 +86,7 @@ const crearServicio = async (req, res) => {
       servicio: resultado.rows[0]
     });
   } catch (error) {
-    errorInterno(res, error);
+    errorInterno(res, error, 'Crear Servicio');
   }
 };
 
