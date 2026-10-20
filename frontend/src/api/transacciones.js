@@ -6,11 +6,6 @@ export async function getTransacciones(params = {}) {
   return data.transacciones ?? []
 }
 
-export async function getPago(transaccionID) {
-  const { data } = await client.get(`/api/transacciones/${transaccionID}`)
-  return data.transaccion
-}
-
 // Registra el pago de una cita. Con `comprobante` (File) se envía multipart
 // (pago móvil del cliente); sin él va como JSON (efectivo/tarjeta del admin).
 export async function crearPago({ citaID, metodo_pago, referencia_pago, monto, comprobante } = {}) {

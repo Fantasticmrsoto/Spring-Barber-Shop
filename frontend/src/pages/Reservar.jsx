@@ -7,7 +7,7 @@ import { getServiciosDeBarbero } from '../api/barberoServicios'
 import { getHorariosDeBarbero } from '../api/horarios'
 import { getOcupados, crearCita, crearCitaPublica, reprogramarCita } from '../api/citas'
 import { mensajeDeError } from '../api/client'
-import { precio, duracion, urlImagen } from '../utils/formato'
+import { precio, duracion, urlImagen, iniciales, DIAS_SEMANA } from '../utils/formato'
 import { enlaceWhatsApp } from '../config'
 import AppHeader from '../components/AppHeader'
 
@@ -15,6 +15,17 @@ const PASO_SERVICIO = 'Servicio'
 const PASO_BARBERO = 'Barbero'
 const PASO_FECHA = 'Fecha y hora'
 const PASO_DATOS = 'Tus datos'
+
+// Texto del botón "volver" según el paso al que se regresa. Se deriva del
+// paso anterior real en lugar de suponerlo: con ?servicio=<id> el primer paso
+// no es el de servicios, y adivinarlo dejaba el botón apuntando a un paso
+// inexistente.
+const ETIQUETA_PASO = {
+  [PASO_SERVICIO]: 'servicios',
+  [PASO_BARBERO]: 'barberos',
+  [PASO_FECHA]: 'fecha y hora',
+  [PASO_DATOS]: 'tus datos',
+}
 
 const paraMinutos = (hhmm) => {
   const [h, m] = hhmm.slice(0, 5).split(':').map(Number)
@@ -31,18 +42,25 @@ const pad = (n) => String(n).padStart(2, '0')
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 const hm = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`
 
+/**
+ * Genera las horas de inicio posibles dentro de un tramo.
+ *
+ * El paso es la duración del servicio, no una hora fija: con un paso fijo de
+ * 30 minutos, un servicio de 45 ofrecía las 09:00 y las 09:30, que se solapan
+ * entre sí. El servidor las rechaza, así que la web ofrecía horas que nunca
+ * iban a funcionar. Con el paso igual a la duración, dos citas consecutivas no
+ * se pisan nunca.
+ */
 function generarSlots(inicio, fin, duracionMinutos) {
   const slots = []
   const desde = paraMinutos(inicio)
   const hasta = paraMinutos(fin)
-  for (let t = desde; t + duracionMinutos <= hasta; t += 30) {
+  const paso = Math.max(Number(duracionMinutos) || 30, 15)
+  for (let t = desde; t + paso <= hasta; t += paso) {
     slots.push(aHHMM(t))
   }
   return slots
 }
-
-const iniciales = (nombre = '', apellido = '') =>
-  `${nombre.charAt(0)}${apellido.charAt(0)}`.toUpperCase()
 
 export default function Reservar() {
   const { usuario } = useAuth()
@@ -98,6 +116,11 @@ export default function Reservar() {
   })
 
   const pasoActual = pasos[paso]
+  // El paso al que vuelve el botón "atrás". Puede no existir: si se entra
+  // con ?servicio=<id>, el primer paso es el de barberos y no hay paso
+  // anterior al que volver.
+  const pasoAnterior = paso > 0 ? pasos[paso - 1] : undefined
+  const puedeVolver = Boolean(pasoAnterior)
 
   useEffect(() => {
     let activo = true
@@ -190,9 +213,9 @@ export default function Reservar() {
 
   const horarioDelDia = useMemo(() => {
     if (!fecha || !horarios) return null
-    const dia = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'][
-      new Date(`${fecha}T00:00:00`).getDay()
-    ]
+    // `getDay()` devuelve 0 para el domingo, así que se desplaza para que
+    // coincida con DIAS_SEMANA (lunes → domingo).
+    const dia = DIAS_SEMANA[(new Date(`${fecha}T00:00:00`).getDay() + 6) % 7]
     return horarios.find((h) => h.dia_semana === dia) || null
   }, [fecha, horarios])
 
@@ -551,13 +574,15 @@ export default function Reservar() {
                     ))}
                   </div>
                 )}
-                <button
-                  type="button"
-                  onClick={() => setPaso(paso - 1)}
-                  className="mt-5 text-sm text-cream-200/60 hover:text-gold-400"
-                >
-                  ← Volver a servicios
-                </button>
+                {puedeVolver && (
+                  <button
+                    type="button"
+                    onClick={() => setPaso(paso - 1)}
+                    className="mt-5 text-sm text-cream-200/60 hover:text-gold-400"
+                  >
+                    ← Volver a {ETIQUETA_PASO[pasoAnterior]}
+                  </button>
+                )}
               </>
             )}
 
@@ -636,13 +661,15 @@ export default function Reservar() {
                 )}
 
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setPaso(paso - 1)}
-                    className="text-sm text-cream-200/60 hover:text-gold-400 sm:text-right"
-                  >
-                    {esBarberoFijo ? '← Volver a servicios' : '← Volver a barberos'}
-                  </button>
+                  {puedeVolver && (
+                    <button
+                      type="button"
+                      onClick={() => setPaso(paso - 1)}
+                      className="text-sm text-cream-200/60 hover:text-gold-400 sm:text-right"
+                    >
+                      ← Volver a {ETIQUETA_PASO[pasoAnterior]}
+                    </button>
+                  )}
                   <button
                     type="button"
                     disabled={!fecha || !hora || enviando}
@@ -712,16 +739,18 @@ export default function Reservar() {
                 )}
 
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setError(null)
-                      setPaso(paso - 1)
-                    }}
-                    className="text-sm text-cream-200/60 hover:text-gold-400"
-                  >
-                    ← Volver a fecha y hora
-                  </button>
+                  {puedeVolver && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError(null)
+                        setPaso(paso - 1)
+                      }}
+                      className="text-sm text-cream-200/60 hover:text-gold-400"
+                    >
+                      ← Volver a {ETIQUETA_PASO[pasoAnterior]}
+                    </button>
+                  )}
                   <button
                     type="button"
                     disabled={enviando}

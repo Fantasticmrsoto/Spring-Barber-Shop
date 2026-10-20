@@ -3,8 +3,9 @@ import { getBarberos } from '../../api/barberos'
 import { getHorariosDeBarbero, guardarHorario, eliminarHorario } from '../../api/horarios'
 import { mensajeDeError } from '../../api/client'
 import { inputClase, botonPrimario, etiqueta, tarjeta } from '../../ui/estilos'
+import { DIAS_SEMANA } from '../../utils/formato'
 
-const DIAS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
+const DIAS = DIAS_SEMANA
 
 export default function AdminHorarios() {
   const [barberos, setBarberos] = useState([])

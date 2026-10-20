@@ -5,11 +5,6 @@ export async function getBarberos() {
   return data.barberos ?? []
 }
 
-export async function getBarbero(barberoID) {
-  const { data } = await client.get(`/api/barberos/${barberoID}`)
-  return data.barbero
-}
-
 export async function crearBarbero(payload) {
   const { data } = await client.post('/api/barberos', payload)
   return data.barbero

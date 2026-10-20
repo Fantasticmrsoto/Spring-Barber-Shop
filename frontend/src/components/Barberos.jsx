@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getBarberos } from '../api/barberos'
 import { mensajeDeError } from '../api/client'
+import { iniciales } from '../utils/formato'
 import ModalBarbero from './ModalBarbero'
 import { Estrellas } from './Estrellas'
 import {
@@ -11,10 +12,6 @@ import {
   usuarioInstagram,
   enlaceWhatsAppNumero,
 } from '../utils/formato'
-
-function iniciales(nombre = '', apellido = '') {
-  return `${nombre.charAt(0)}${apellido.charAt(0)}`.toUpperCase()
-}
 
 export default function Barberos() {
   const [barberos, setBarberos] = useState([])

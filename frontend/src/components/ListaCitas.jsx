@@ -3,14 +3,10 @@ import { Link } from 'react-router-dom'
 import { cambiarEstadoCita } from '../api/citas'
 import { mensajeDeError } from '../api/client'
 import { fechaHora, precio } from '../utils/formato'
+import { ESTADOS_CITA } from '../utils/pago'
 import EstadoPagoBadge from './EstadoPagoBadge'
 
-const ESTADOS = {
-  pendiente: { label: 'Pendiente', clase: 'bg-amber-500/15 text-amber-300' },
-  confirmada: { label: 'Confirmada', clase: 'bg-sky-500/15 text-sky-300' },
-  completada: { label: 'Completada', clase: 'bg-emerald-500/15 text-emerald-300' },
-  cancelada: { label: 'Cancelada', clase: 'bg-red-500/15 text-red-300' },
-}
+const ESTADOS = ESTADOS_CITA
 
 const FILTROS = ['todas', 'pendiente', 'confirmada', 'completada', 'cancelada']
 

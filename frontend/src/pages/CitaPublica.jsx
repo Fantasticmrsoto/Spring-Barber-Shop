@@ -3,15 +3,11 @@ import { Link, useParams } from 'react-router-dom'
 import { getCitaPublica, cancelarCitaPublica } from '../api/citas'
 import { mensajeDeError } from '../api/client'
 import { fechaHora, precio, duracion } from '../utils/formato'
+import { ESTADOS_CITA } from '../utils/pago'
 import { enlaceWhatsApp } from '../config'
 import AppHeader from '../components/AppHeader'
 
-const ESTADOS = {
-  pendiente: { label: 'Pendiente', clase: 'bg-amber-500/15 text-amber-300' },
-  confirmada: { label: 'Confirmada', clase: 'bg-sky-500/15 text-sky-300' },
-  completada: { label: 'Completada', clase: 'bg-emerald-500/15 text-emerald-300' },
-  cancelada: { label: 'Cancelada', clase: 'bg-red-500/15 text-red-300' },
-}
+const ESTADOS = ESTADOS_CITA
 
 const CANCELABLES = ['pendiente', 'confirmada']
 

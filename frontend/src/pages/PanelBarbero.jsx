@@ -10,20 +10,14 @@ import {
 } from '../api/barberoServicios'
 import { getHorariosDeBarbero, guardarHorario, eliminarHorario } from '../api/horarios'
 import { mensajeDeError } from '../api/client'
-import { urlImagen } from '../utils/formato'
+import { urlImagen, iniciales, DIAS_SEMANA } from '../utils/formato'
+import { inputClase } from '../ui/estilos'
 import AppHeader from '../components/AppHeader'
 import ListaCitas from '../components/ListaCitas'
 
-const DIAS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
-
-const inputClase =
-  'w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-cream-50 outline-none focus:border-gold-500'
+const DIAS = DIAS_SEMANA
 
 const pestanas = ['Agenda', 'Horario', 'Servicios', 'Perfil']
-
-function iniciales(nombre = '', apellido = '') {
-  return `${nombre.charAt(0)}${apellido.charAt(0)}`.toUpperCase()
-}
 
 export default function PanelBarbero() {
   const { usuario } = useAuth()

@@ -2,10 +2,8 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { recuperarClave } from '../api/auth'
 import { mensajeDeError } from '../api/client'
+import { inputClase } from '../ui/estilos'
 import logo from '../assets/logo-spring.jpg'
-
-const inputClase =
-  'w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-cream-50 outline-none transition placeholder:text-cream-200/40 focus:border-gold-500'
 
 export default function Recuperar() {
   const [form, setForm] = useState({

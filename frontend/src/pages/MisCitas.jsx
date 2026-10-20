@@ -4,15 +4,13 @@ import { useAuth } from '../auth/useAuth'
 import { getCitas } from '../api/citas'
 import { mensajeDeError } from '../api/client'
 import { fechaHora, precio } from '../utils/formato'
+import { ESTADOS_CITA } from '../utils/pago'
 import AppHeader from '../components/AppHeader'
 import ListaCitas, { AccionesClienteCita } from '../components/ListaCitas'
 
-const ESTADO_LABEL = {
-  pendiente: 'Pendiente',
-  confirmada: 'Confirmada',
-  completada: 'Completada',
-  cancelada: 'Cancelada',
-}
+const ESTADO_LABEL = Object.fromEntries(
+  Object.entries(ESTADOS_CITA).map(([estado, { label }]) => [estado, label])
+)
 
 export default function MisCitas() {
   const { usuario } = useAuth()

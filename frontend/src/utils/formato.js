@@ -19,10 +19,31 @@ export function duracion(minutos) {
   return resto ? `${horas} h ${resto} min` : `${horas} h`
 }
 
-const DIAS = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
+/*
+ * Días de la semana, en el mismo formato que el CHECK de la base de datos
+ * (`horario_laboral_dia_check`): minúsculas y sin tilde.
+ *
+ * El orden es lunes → domingo. Antes cada fichero tenía su propia lista y
+ * dos órdenes distintos (domingo primero en unos, lunes primero en otros),
+ * lo que hacía que un mismo día se mostrara en sitios diferentes.
+ */
+export const DIAS_SEMANA = [
+  'lunes',
+  'martes',
+  'miercoles',
+  'jueves',
+  'viernes',
+  'sabado',
+  'domingo',
+]
 
-export function nombreDia(indice) {
-  return DIAS[indice] ?? ''
+/*
+ * Iniciales para el avatar de una persona ("Carlos Navas" → "CN").
+ *
+ * Estaba copiado en cuatro componentes; ahora se importa de aquí.
+ */
+export function iniciales(nombre = '', apellido = '') {
+  return `${nombre.charAt(0)}${apellido.charAt(0)}`.toUpperCase()
 }
 
 export function capitalizar(texto = '') {
@@ -33,11 +54,6 @@ export function fechaHora(valor) {
   const d = new Date(valor)
   if (Number.isNaN(d.getTime())) return ''
   return d.toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })
-}
-
-// Índice de día (0 = domingo) para una fecha local "YYYY-MM-DD".
-export function diaDeFecha(fechaYmd) {
-  return new Date(`${fechaYmd}T00:00:00`).getDay()
 }
 
 // El backend guarda la foto como ruta relativa ("/uploads/foto.jpg"). Se

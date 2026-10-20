@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getResenasBarbero, crearResenaBarbero } from '../api/barberos'
 import { mensajeDeError } from '../api/client'
+import { iniciales } from '../utils/formato'
 import { Estrellas, SelectorEstrellas } from './Estrellas'
 import { useAuth } from '../auth/useAuth'
 import {
@@ -13,10 +14,6 @@ import {
   capitalizar,
   fechaHora,
 } from '../utils/formato'
-
-function iniciales(nombre = '', apellido = '') {
-  return `${nombre.charAt(0)}${apellido.charAt(0)}`.toUpperCase()
-}
 
 export default function ModalBarbero({ barbero, onCerrar }) {
   const { usuario } = useAuth()

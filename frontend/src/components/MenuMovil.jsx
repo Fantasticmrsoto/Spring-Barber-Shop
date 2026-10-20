@@ -24,7 +24,7 @@ export function IconoHamburguesa({ className = 'h-5 w-5' }) {
   )
 }
 
-export function IconoCerrar({ className = 'h-5 w-5' }) {
+function IconoCerrar({ className = 'h-5 w-5' }) {
   return (
     <svg
       viewBox="0 0 24 24"

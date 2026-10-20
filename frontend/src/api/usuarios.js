@@ -5,11 +5,6 @@ export async function getUsuarios() {
   return data.usuarios ?? []
 }
 
-export async function getUsuario(usuarioID) {
-  const { data } = await client.get(`/api/usuarios/${usuarioID}`)
-  return data.usuario
-}
-
 export async function crearUsuario(payload) {
   const { data } = await client.post('/api/usuarios', payload)
   return { usuario: data.usuario, citasVinculadas: data.citasVinculadas ?? 0 }
