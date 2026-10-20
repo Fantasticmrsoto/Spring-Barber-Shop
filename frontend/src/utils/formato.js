@@ -50,6 +50,23 @@ export function capitalizar(texto = '') {
   return texto.charAt(0).toUpperCase() + texto.slice(1)
 }
 
+/**
+ * Fecha "YYYY-MM-DD" en texto legible: "1 de enero".
+ *
+ * Se construye con las partes de la fecha en local, no con `toISOString()`,
+ * que convertiría a UTC y en husos horarios positivos se perdería un día.
+ */
+export function formatearFechaLarga(fechaYmd) {
+  if (!fechaYmd) return ''
+  const [anio, mes, dia] = fechaYmd.split('-').map(Number)
+  if (!anio || !mes || !dia) return fechaYmd
+  const meses = [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+  ]
+  return `${dia} de ${meses[mes - 1]}`
+}
+
 export function fechaHora(valor) {
   const d = new Date(valor)
   if (Number.isNaN(d.getTime())) return ''

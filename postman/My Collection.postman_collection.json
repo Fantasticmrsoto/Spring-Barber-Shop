@@ -42,7 +42,14 @@
           "// 07:00 queda antes de que el barbero abra",
           "const fueraHorario = new Date(lunes);",
           "fueraHorario.setHours(7, 0, 0, 0);",
-          "pm.environment.set('fechaFueraHorario', iso(fueraHorario));"
+          "pm.environment.set('fechaFueraHorario', iso(fueraHorario));",
+          "",
+          "// El domingo siguiente al lunes de la semana de pruebas: la peluquería no",
+          "// abre los domingos (día de descanso).",
+          "const domingo = new Date(lunes);",
+          "domingo.setDate(lunes.getDate() + 6);",
+          "domingo.setHours(10, 0, 0, 0);",
+          "pm.environment.set('fechaDomingo', iso(domingo));"
         ]
       }
     }
@@ -1359,6 +1366,144 @@
               "  pm.response.to.have.status(404);",
               "  pm.expect(pm.response.json().ok).to.be.false;",
               "  pm.expect(pm.response.json().message).to.eql('Recurso no encontrado');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "29 · Feriados publicados",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/feriados",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "feriados"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('devuelve la lista de feriados con 200', () => { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('incluye los días de descanso', () => {",
+              "  pm.expect(json.dias_descanso).to.include('domingo');",
+              "});",
+              "pm.test('hay feriados publicados', () => {",
+              "  pm.expect(json.feriados.length).to.be.above(0);",
+              "});",
+              "// Se guarda la fecha del primer feriado para el caso siguiente, en vez de",
+              "// escribirla a mano: así el test no se queda obsoleto cuando cambien.",
+              "pm.environment.set('fechaFeriado', json.feriados[0].fecha);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "30 · Cita en feriado rechazada",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clienteID\": \"{{usuarioClienteID}}\",\n  \"barberoID\": \"{{barberoID}}\",\n  \"servicioID\": \"{{servicioID}}\",\n  \"fecha_hora\": \"{{fechaFeriado}}T10:00:00\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/citas",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('una cita en un feriado devuelve 400', () => { pm.response.to.have.status(400); });",
+              "pm.test('el mensaje menciona que no se puede reservar', () => {",
+              "  pm.expect(pm.response.json().message).to.include('No se puede reservar');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "31 · Cita en domingo rechazada",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clienteID\": \"{{usuarioClienteID}}\",\n  \"barberoID\": \"{{barberoID}}\",\n  \"servicioID\": \"{{servicioID}}\",\n  \"fecha_hora\": \"{{fechaDomingo}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/citas",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('una cita en domingo devuelve 400', () => { pm.response.to.have.status(400); });",
+              "pm.test('el mensaje dice que es día de descanso', () => {",
+              "  pm.expect(pm.response.json().message).to.include('día de descanso');",
               "});"
             ]
           }

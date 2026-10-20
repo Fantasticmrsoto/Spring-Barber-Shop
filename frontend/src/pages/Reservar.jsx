@@ -4,10 +4,12 @@ import { useAuth } from '../auth/useAuth'
 import { getServicios } from '../api/servicios'
 import { getBarberos } from '../api/barberos'
 import { getServiciosDeBarbero } from '../api/barberoServicios'
+import { getFeriados } from '../api/feriados'
 import { getHorariosDeBarbero } from '../api/horarios'
 import { getOcupados, crearCita, crearCitaPublica, reprogramarCita } from '../api/citas'
 import { mensajeDeError } from '../api/client'
-import { precio, duracion, urlImagen, iniciales, DIAS_SEMANA } from '../utils/formato'
+import { precio, duracion, urlImagen, iniciales, DIAS_SEMANA, formatearFechaLarga } from '../utils/formato'
+import { revisarFecha } from '../utils/calendario'
 import { enlaceWhatsApp } from '../config'
 import AppHeader from '../components/AppHeader'
 
@@ -92,6 +94,12 @@ export default function Reservar() {
   const [cargandoBase, setCargandoBase] = useState(true)
   const [errorBase, setErrorBase] = useState(null)
   const [idsDelBarberoFijo, setIdsDelBarberoFijo] = useState(null)
+  // Días de descanso y feriados: días en los que no se puede reservar.
+  const [calendario, setCalendario] = useState({ diasDescanso: [], feriados: [] })
+  // Fecha que el usuario eligió y no se puede reservar. Se guarda aparte
+  // porque la fecha se borra del formulario al rechazarla, y el aviso tiene
+  // que seguir viéndose.
+  const [bloqueo, setBloqueo] = useState(null)
 
   const [paso, setPaso] = useState(0)
   const [servicio, setServicio] = useState(null)
@@ -121,6 +129,19 @@ export default function Reservar() {
   // anterior al que volver.
   const pasoAnterior = paso > 0 ? pasos[paso - 1] : undefined
   const puedeVolver = Boolean(pasoAnterior)
+
+  // Días de descanso y feriados. Se piden aparte para que un fallo aquí no
+  // impida reservar: el servidor es quien rechaza esas fechas de todas
+  // maneras, esto solo es para no ofrecerlas.
+  useEffect(() => {
+    let activo = true
+    getFeriados()
+      .then((c) => activo && setCalendario(c))
+      .catch(() => {})
+    return () => {
+      activo = false
+    }
+  }, [])
 
   useEffect(() => {
     let activo = true
@@ -234,6 +255,19 @@ export default function Reservar() {
     if (!horarioDelDia || !servicio) return []
     return generarSlots(horarioDelDia.hora_inicio, horarioDelDia.hora_fin, servicio.duracion_minutos)
   }, [horarioDelDia, servicio])
+
+  // Los próximos feriados, para avisar de antemano. Solo los que aún no han
+  // pasado y no son más de tres: si no, la lista sería larguísima.
+  //
+  // Se compara con `ahora` (un estado) y no con `new Date()`: llamar a Date
+  // durante el render es impuro y el compilador de React lo rechaza.
+  const proximosFeriados = useMemo(() => {
+    if (!ahora) return []
+    const hoy = ymd(ahora)
+    return (calendario.feriados ?? [])
+      .filter((f) => f.fecha >= hoy)
+      .slice(0, 3)
+  }, [calendario, ahora])
 
   const esHoy = fecha && ahora && ymd(ahora) === fecha
 
@@ -602,12 +636,35 @@ export default function Reservar() {
                     value={fecha}
                     min={ahora ? ymd(ahora) : undefined}
                     onChange={(e) => {
-                      setFecha(e.target.value)
+                      const elegida = e.target.value
+                      // Los domingos y los feriados no admiten reservas. Se
+                      // avisa y no se guarda la fecha, para que el usuario no
+                      // llegue al final del formulario con un error.
+                      const revision = revisarFecha(elegida, calendario)
+                      if (revision.bloqueado) {
+                        setBloqueo({ fecha: elegida, motivo: revision.motivo })
+                        setFecha('')
+                        setHora('')
+                        return
+                      }
+                      setBloqueo(null)
+                      setError(null)
+                      setFecha(elegida)
                       setHora('')
                     }}
                     className="mt-2 block w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-cream-50 outline-none focus:border-gold-500 sm:max-w-xs"
                   />
                 </label>
+
+                {bloqueo && (
+                  <p className="mt-5 text-amber-300">{bloqueo.motivo}</p>
+                )}
+
+                {proximosFeriados.length > 0 && (
+                  <p className="mt-4 text-xs text-cream-200/60">
+                    Días sin reservas: {proximosFeriados.map((f) => `${formatearFechaLarga(f.fecha)} (${f.nombre})`).join(', ')}.
+                  </p>
+                )}
 
                 {fecha && horarios && !horarioDelDia && (
                   <p className="mt-5 text-amber-300">

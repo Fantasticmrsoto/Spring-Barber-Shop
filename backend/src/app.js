@@ -13,6 +13,7 @@ const authRoutes = require('./routes/authRoutes');
 const horarioRoutes = require('./routes/horarioRoutes');
 const barberoServicioRoutes = require('./routes/barberoServicioRoutes');
 const transaccionRoutes = require('./routes/transaccionRoutes');
+const feriadoRoutes = require('./routes/feriadoRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -68,6 +69,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/horarios', horarioRoutes);
 app.use('/api/barbero-servicios', barberoServicioRoutes);
 app.use('/api/transacciones', transaccionRoutes);
+app.use('/api/feriados', feriadoRoutes);
 
 /*
  * Web compilada (opcional).

@@ -21,6 +21,7 @@ npx newman run "postman/My Collection.postman_collection.json" \
 | `GET /` | Estado de la API en JSON. En producción, si la web se sirve desde el mismo proceso, devuelve la web (ver abajo) |
 | `GET /api` | Estado de la API en JSON. Siempre disponible, también en producción |
 | `GET /api/salud` | Sonda de estado: `200` si la API responde **y** la base de datos está accesible, `503` si no |
+| `GET /api/feriados` | Días en los que no se puede reservar (domingos y feriados) |
 
 `/api/salud` es la ruta que usan las plataformas de hosting para comprobar el
 servicio, y la que conviene usar en monitorización.
@@ -285,13 +286,16 @@ No se envía.
 
 1. El barbero existe y está activo.
 2. El servicio existe.
-3. El barbero tiene horario configurado para **ese día de la semana**.
-4. La cita completa dentro de ese horario (empieza después de `hora_inicio` y
+3. **La peluquería abre ese día**: no es domingo (día de descanso) ni un
+   feriado. Ver [`GET /api/feriados`](#get-apiferiados--pública).
+4. El barbero tiene horario configurado para **ese día de la semana**.
+5. La cita completa dentro de ese horario (empieza después de `hora_inicio` y
    termina antes de `hora_fin`).
-5. No se solapa con otra cita del mismo barbero. Las canceladas no bloquean.
+6. No se solapa con otra cita del mismo barbero. Las canceladas no bloquean.
 
 | Error | Cuándo |
 |---|---|
+| `400` | Es domingo (día de descanso) o es un feriado |
 | `400` | El barbero no tiene horario para ese día, o la cita cae fuera del horario |
 | `400` | Se solapa con otra cita |
 | `400` | El barbero no está activo |
@@ -310,6 +314,53 @@ vive en el frontend.
 ```
 
 Un `401` significa token ausente o expirado. Un `403` significa rol insuficiente.
+
+---
+
+## Días no laborables
+
+La peluquería no abre los **domingos** (día de descanso) ni en los **feriados**.
+
+### `GET /api/feriados` · pública
+
+Devuelve los días en los que no se puede reservar. La web la consulta antes de
+que el cliente haya iniciado sesión, para no ofrecer unas fechas que el
+servidor va a rechazar.
+
+```jsonc
+// respuesta 200
+{
+  "ok": true,
+  "dias_descanso": ["domingo"],
+  "feriados": [
+    { "fecha": "2026-01-01", "nombre": "Año Nuevo", "tipo": "festivo" },
+    { "fecha": "2026-02-16", "nombre": "Carnaval (lunes)", "tipo": "carnaval" }
+  ]
+}
+```
+
+| Campo | Qué es |
+|---|---|
+| `dias_descanso` | Días de la semana sin servicio, en minúsculas y sin tilde |
+| `feriados` | Fechas concretas, ordenadas de menor a mayor |
+| `feriado.tipo` | `festivo`, `religioso` o `carnaval` |
+
+**De dónde salen los feriados.** Están en la tabla `feriado` (migración 007),
+que viene con los feriados de Venezuela de 2026 y 2027. Para otros años se
+añaden las filas a mano:
+
+```sql
+INSERT INTO feriado (fecha, nombre, tipo) VALUES ('2028-01-01', 'Año Nuevo', 'festivo');
+```
+
+El tipo no obliga a nada: es informativo, para poder distinguirlos si en
+algún momento hace falta (por ejemplo, si un feriado se compensa con un día
+extra de la semana).
+
+**La comprobación es del servidor, no solo de la web.** `POST /api/citas`
+rechaza con `400` cualquier cita que caiga en domingo o en feriado, aunque se
+llame a la API directamente. El frontend solo lo anticipa para no ofrecer
+esas fechas.
 
 ---
 

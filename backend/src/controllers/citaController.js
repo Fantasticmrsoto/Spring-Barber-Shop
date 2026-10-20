@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const { errorInterno } = require('../utils/respuestaError');
-const { nombreDia, horaAMinutos } = require('../utils/validacion');
+const { nombreDia, horaAMinutos, fechaYmd, parsearFechaHora } = require('../utils/validacion');
+const { esDiaDeDescanso, mensajeDiaDeDescanso } = require('../config/calendario');
 
 // Estados permitidos (deben coincidir con el CHECK de la migración 001)
 const ESTADOS_VALIDOS = ['pendiente', 'confirmada', 'completada', 'cancelada'];
@@ -56,7 +57,7 @@ const crearCita = async (req, res) => {
   const clienteId = Number(clienteID);
   const barberoId = Number(barberoID);
   const servicioId = Number(servicioID);
-  const fechaInicio = fecha_hora ? new Date(fecha_hora) : null;
+  const fechaInicio = fecha_hora ? parsearFechaHora(fecha_hora) : null;
 
   if (
     !Number.isInteger(clienteId) || clienteId <= 0 ||
@@ -96,7 +97,31 @@ const crearCita = async (req, res) => {
       const { duracion_minutos: duracionMinutos } = servicioRes.rows[0];
       const fechaFin = new Date(fechaInicio.getTime() + duracionMinutos * 60 * 1000);
 
-      // D. La cita debe caer dentro del horario laboral configurado para ese día.
+      // D. Días en los que la peluquería no abre.
+      //
+      // El día de descanso se deduce del día de la semana; los feriados
+      // vienen de la tabla `feriado`.
+      //
+      // Va antes que la comprobación del horario laboral a propósito: si el
+      // barbero no tiene horario un domingo, el mensaje que sale debe decir
+      // que es día de descanso, no que a ese barbero le falta el horario.
+      //
+      // Se comprueba aquí y no solo en la web: es el servidor el que dice que
+      // no, porque el navegador se puede saltarse. Va dentro de la
+      // transacción para que la comprobación y el INSERT sean atómicos.
+      if (esDiaDeDescanso(fechaInicio)) {
+        throw errorHttp(400, mensajeDiaDeDescanso(fechaInicio));
+      }
+
+      const feriadoRes = await client.query(
+        'SELECT nombre FROM feriado WHERE fecha = $1',
+        [fechaYmd(fechaInicio)]
+      );
+      if (feriadoRes.rows.length > 0) {
+        throw errorHttp(400, `No se puede reservar: ${feriadoRes.rows[0].nombre}.`);
+      }
+
+      // E. La cita debe caer dentro del horario laboral configurado para ese día.
       //    Va dentro de la transacción y usa `client` para que la validación y el
       //    INSERT sean atómicos.
       const dia = nombreDia(fechaInicio);
@@ -125,7 +150,7 @@ const crearCita = async (req, res) => {
         throw errorHttp(400, `La cita está fuera del horario laboral del barbero (${horaInicio} - ${horaFin})`);
       }
 
-      // E. Solapamiento: el intervalo [fecha_inicio, fecha_fin) de la nueva cita
+      // F. Solapamiento: el intervalo [fecha_inicio, fecha_fin) de la nueva cita
       //    contra las citas existentes del mismo barbero. Las canceladas no bloquean.
       const cruce = await client.query(
         `SELECT "citaID", fecha_inicio, fecha_fin
@@ -140,7 +165,7 @@ const crearCita = async (req, res) => {
         throw errorHttp(400, 'El barbero ya tiene una cita que se cruza con ese horario');
       }
 
-      // F. Insertar la nueva cita
+      // G. Insertar la nueva cita
       const insercion = await client.query(
         `INSERT INTO cita ("clienteID", "barberoID", "servicioID", fecha_inicio, fecha_fin, estado)
          VALUES ($1, $2, $3, $4, $5, 'pendiente')
