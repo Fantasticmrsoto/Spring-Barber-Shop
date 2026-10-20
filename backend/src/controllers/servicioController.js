@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { errorInterno } = require('../utils/respuestaError');
 
 // 1. Obtener todos los servicios
 const obtenerServicios = async (req, res) => {
@@ -14,8 +15,7 @@ const obtenerServicios = async (req, res) => {
       servicios: resultado.rows
     });
   } catch (error) {
-    console.error('Error al obtener servicios:', error);
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 
@@ -41,8 +41,7 @@ const obtenerServicioPorId = async (req, res) => {
     }
     res.json({ ok: true, servicio: resultado.rows[0] });
   } catch (error) {
-    console.error('Error al obtener servicio:', error);
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 
@@ -80,8 +79,7 @@ const crearServicio = async (req, res) => {
       servicio: resultado.rows[0]
     });
   } catch (error) {
-    console.error('Error al crear servicio:', error);
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 

@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { errorInterno } = require('../utils/respuestaError');
 
 // Días aceptados por el CHECK horario_laboral_dia_check (migración 004).
 // Se usan en minúsculas y sin tilde; citaController convierte la fecha al mismo nombre.
@@ -47,8 +48,7 @@ const obtenerHorariosPorBarbero = async (req, res) => {
       horarios: resultado.rows
     });
   } catch (error) {
-    console.error('Error al obtener horarios:', error.message);
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 
@@ -111,15 +111,13 @@ const guardarHorario = async (req, res) => {
       horario: resultado.rows[0]
     });
   } catch (error) {
-    console.error('Error al guardar horario:', error.message);
-
     if (error.code === '23503') {
       return res.status(400).json({ ok: false, message: 'El barbero indicado no existe' });
     }
     if (error.code === '23514') {
       return res.status(400).json({ ok: false, message: 'Día u horario fuera de los valores permitidos' });
     }
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 
@@ -157,8 +155,7 @@ const eliminarHorario = async (req, res) => {
       horarioID: resultado.rows[0].horarioID
     });
   } catch (error) {
-    console.error('Error al eliminar horario:', error.message);
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 

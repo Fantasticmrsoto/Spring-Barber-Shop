@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { errorInterno } = require('../utils/respuestaError');
 
 // Estados permitidos (deben coincidir con el CHECK de la migración 001)
 const ESTADOS_VALIDOS = ['pendiente', 'confirmada', 'completada', 'cancelada'];
@@ -55,8 +56,7 @@ const obtenerCitas = async (req, res) => {
       citas: resultado.rows
     });
   } catch (error) {
-    console.error('Error al obtener citas:', error.message);
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 
@@ -167,8 +167,6 @@ const crearCita = async (req, res) => {
       cita
     });
   } catch (error) {
-    console.error('Error al crear cita:', error.message);
-
     if (error.status) {
       return res.status(error.status).json({ ok: false, message: error.message });
     }
@@ -178,7 +176,7 @@ const crearCita = async (req, res) => {
     if (error.code === '23514') {
       return res.status(400).json({ ok: false, message: 'Estado de cita no válido' });
     }
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 
@@ -217,8 +215,7 @@ const actualizarEstadoCita = async (req, res) => {
       cita: resultado.rows[0]
     });
   } catch (error) {
-    console.error('Error al actualizar cita:', error.message);
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 

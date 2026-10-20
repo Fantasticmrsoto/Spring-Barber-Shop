@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const { errorInterno } = require('../utils/respuestaError');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const { JWT_SECRET, JWT_EXPIRES_IN } = require('../config/jwt');
@@ -69,8 +70,7 @@ const login = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error en el login:', error.message);
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 
@@ -98,8 +98,7 @@ const obtenerPerfil = async (req, res) => {
 
     res.json({ ok: true, usuario: resultado.rows[0] });
   } catch (error) {
-    console.error('Error al obtener el perfil:', error.message);
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 

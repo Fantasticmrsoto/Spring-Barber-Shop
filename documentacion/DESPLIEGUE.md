@@ -238,6 +238,22 @@ c.connect().then(()=>c.query('select 1')).then(()=>console.log('OK')).catch(e=>c
 Command debe ser `npm run start:prod` (migra y arranca) o `npm run migrate &&
 npm start`. Con el runtime de Node, `npm start` a secas no migra.
 
+**La web carga pero sale "Error interno del servidor" en las secciones de datos**
+→ Es el mismo problema: la API conecta con la base de datos (por eso
+`/api/salud` responde), pero las tablas no existen. Con la versión actual el
+mensaje es accionable:
+
+```json
+{ "ok": false, "error": "La base de datos no tiene el esquema aplicado. Ejecuta las migraciones: npm run migrate" }
+```
+
+Y `/api/salud` devuelve `503` con `"status": "sin esquema"`, que es lo que
+permite que Render marque el servicio como *unhealthy* en vez de parecer sano
+mientras todo falla.
+
+La causa más común: el Start Command quedó en `npm start` (que no migra) en
+lugar de `npm run start:prod`.
+
 **Render despliega una versión antigua del código**
 → Comprueba la rama en *Settings → Build & Deploy → Branch*. Si desplegas
 `main`, `main` tiene que estar al día. Y comprueba el commit en el log del

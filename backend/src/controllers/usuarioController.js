@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const { errorInterno } = require('../utils/respuestaError');
 const db = require('../config/db');
 
 // 1. Obtener todos los usuarios
@@ -13,8 +14,7 @@ const obtenerUsuarios = async (req, res) => {
       usuarios: resultado.rows
     });
   } catch (error) {
-    console.error('Error al obtener usuarios:', error);
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 
@@ -42,8 +42,7 @@ const obtenerUsuarioPorId = async (req, res) => {
 
     res.json({ ok: true, usuario: resultado.rows[0] });
   } catch (error) {
-    console.error('Error al obtener usuario:', error);
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 
@@ -81,11 +80,10 @@ const crearUsuario = async (req, res) => {
       usuario: resultado.rows[0]
     });
   } catch (error) {
-    console.error('Error al crear usuario:', error);
     if (error.code === '23505') {
       return res.status(400).json({ ok: false, message: 'El correo electrónico ya está registrado' });
     }
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 
@@ -134,8 +132,7 @@ const actualizarUsuario = async (req, res) => {
       usuario: resultado.rows[0]
     });
   } catch (error) {
-    console.error('Error al actualizar usuario:', error);
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 
@@ -167,8 +164,7 @@ const eliminarUsuario = async (req, res) => {
       usuarioID: resultado.rows[0].usuarioID
     });
   } catch (error) {
-    console.error('Error al eliminar usuario:', error);
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 

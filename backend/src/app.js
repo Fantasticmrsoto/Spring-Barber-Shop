@@ -120,15 +120,46 @@ if (!carpetaFrontend) {
  * La usan los proveedores de hosting para comprobar que el servicio está vivo
  * y, sobre todo, que puede hablar con la base de datos: un servicio que
  * arranca pero no conecta con PostgreSQL no sirve de nada.
+ *
+ * También comprueba que el esquema está aplicado. Conectar no es lo mismo que
+ * tener las tablas: una base de datos recién creada acepta conexiones sin
+ * problema y falla en todas las consultas con "relation does not exist". Con
+ * este segundo control, el servicio se marca como unhealthy en vez de
+ * parecer sano mientras devuelve errores 500 en cada petición.
  */
 app.get('/api/salud', async (req, res) => {
+  const { query } = require('./config/db');
+  const { faltaElEsquema, MENSAJE_ESQUEMA } = require('./utils/respuestaError');
+
   try {
-    const { query } = require('./config/db');
     await query('SELECT 1');
-    res.json({ ok: true, status: 'sano', timestamp: new Date().toISOString() });
   } catch (error) {
-    res.status(503).json({ ok: false, status: 'sin base de datos', error: error.message });
+    return res.status(503).json({
+      ok: false,
+      status: 'sin base de datos',
+      error: error.message,
+    });
   }
+
+  try {
+    // Si la tabla no existe, PostgreSQL responde 42P01.
+    await query('SELECT 1 FROM servicios LIMIT 1');
+  } catch (error) {
+    if (faltaElEsquema(error)) {
+      return res.status(503).json({
+        ok: false,
+        status: 'sin esquema',
+        error: MENSAJE_ESQUEMA,
+      });
+    }
+    return res.status(503).json({
+      ok: false,
+      status: 'error de base de datos',
+      error: error.message,
+    });
+  }
+
+  res.json({ ok: true, status: 'sano', timestamp: new Date().toISOString() });
 });
 
 // Información de la API. Se registra siempre, incluso cuando la web se

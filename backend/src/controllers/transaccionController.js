@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { errorInterno } = require('../utils/respuestaError');
 
 // 1. Obtener todas las transacciones o movimientos de saldo
 const obtenerTransacciones = async (req, res) => {
@@ -27,8 +28,7 @@ const obtenerTransacciones = async (req, res) => {
       transacciones: resultado.rows
     });
   } catch (error) {
-    console.error('Error al obtener transacciones:', error.message);
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 
@@ -98,8 +98,6 @@ const crearTransaccion = async (req, res) => {
       transaccion: resultado.rows[0]
     });
   } catch (error) {
-    console.error('Error al registrar transacción:', error.message);
-
     if (error.code === '23503') {
       return res.status(400).json({ ok: false, message: 'El usuario indicado no existe' });
     }
@@ -109,7 +107,7 @@ const crearTransaccion = async (req, res) => {
     if (error.code === '22003') {
       return res.status(400).json({ ok: false, message: 'monto o saldo_restante fuera de rango' });
     }
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 

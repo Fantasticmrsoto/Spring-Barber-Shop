@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { errorInterno } = require('../utils/respuestaError');
 
 // Valida que un id de ruta o del body sea un entero positivo.
 const idValido = (valor) => {
@@ -38,8 +39,7 @@ const obtenerServiciosPorBarbero = async (req, res) => {
       servicios: resultado.rows
     });
   } catch (error) {
-    console.error('Error al obtener servicios del barbero:', error.message);
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 
@@ -98,12 +98,10 @@ const asignarServicioABarbero = async (req, res) => {
       asignacion: resultado.rows[0]
     });
   } catch (error) {
-    console.error('Error al asignar servicio:', error.message);
-
     if (error.code === '23503') {
       return res.status(400).json({ ok: false, message: 'El barbero o el servicio no existe' });
     }
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 
@@ -137,8 +135,7 @@ const eliminarServicioDeBarbero = async (req, res) => {
       barbero_servicioID: resultado.rows[0].barbero_servicioID
     });
   } catch (error) {
-    console.error('Error al desvincular servicio:', error.message);
-    res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    errorInterno(res, error);
   }
 };
 
