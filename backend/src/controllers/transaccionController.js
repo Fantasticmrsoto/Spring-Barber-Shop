@@ -28,7 +28,7 @@ const obtenerTransacciones = async (req, res) => {
       transacciones: resultado.rows
     });
   } catch (error) {
-    errorInterno(res, error);
+    errorInterno(res, error, 'Obtener Transacciones');
   }
 };
 
@@ -107,7 +107,7 @@ const crearTransaccion = async (req, res) => {
     if (error.code === '22003') {
       return res.status(400).json({ ok: false, message: 'monto o saldo_restante fuera de rango' });
     }
-    errorInterno(res, error);
+    errorInterno(res, error, 'Crear Transaccion');
   }
 };
 

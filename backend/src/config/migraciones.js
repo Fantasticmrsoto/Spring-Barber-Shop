@@ -134,6 +134,4 @@ const esquemaPresente = async (pool) => {
 module.exports = {
   ejecutarMigraciones,
   esquemaPresente,
-  listarMigraciones,
-  DIRECTORIO_MIGRACIONES,
 };

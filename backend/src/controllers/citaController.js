@@ -1,20 +1,9 @@
 const db = require('../config/db');
 const { errorInterno } = require('../utils/respuestaError');
+const { nombreDia, horaAMinutos } = require('../utils/validacion');
 
 // Estados permitidos (deben coincidir con el CHECK de la migración 001)
 const ESTADOS_VALIDOS = ['pendiente', 'confirmada', 'completada', 'cancelada'];
-
-// Días de la semana en el mismo formato que exige el CHECK horario_laboral_dia_check.
-// El índice corresponde a Date.getDay(): 0 = domingo.
-const DIAS_SEMANA = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
-
-const nombreDia = (fecha) => DIAS_SEMANA[fecha.getDay()];
-
-// Convierte una hora "HH:MM" o "HH:MM:SS" a minutos desde medianoche.
-const horaAMinutos = (hora) => {
-  const [h, m] = hora.split(':').map(Number);
-  return h * 60 + m;
-};
 
 // Error de negocio con código HTTP, para diferenciarlo de un fallo de PostgreSQL
 const errorHttp = (status, message) => {
@@ -56,7 +45,7 @@ const obtenerCitas = async (req, res) => {
       citas: resultado.rows
     });
   } catch (error) {
-    errorInterno(res, error);
+    errorInterno(res, error, 'Obtener Citas');
   }
 };
 
@@ -176,7 +165,7 @@ const crearCita = async (req, res) => {
     if (error.code === '23514') {
       return res.status(400).json({ ok: false, message: 'Estado de cita no válido' });
     }
-    errorInterno(res, error);
+    errorInterno(res, error, 'Crear Cita');
   }
 };
 
@@ -215,7 +204,7 @@ const actualizarEstadoCita = async (req, res) => {
       cita: resultado.rows[0]
     });
   } catch (error) {
-    errorInterno(res, error);
+    errorInterno(res, error, 'Actualizar Estado Cita');
   }
 };
 

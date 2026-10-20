@@ -1,11 +1,6 @@
 const db = require('../config/db');
 const { errorInterno } = require('../utils/respuestaError');
-
-// Valida que un id de ruta o del body sea un entero positivo.
-const idValido = (valor) => {
-  const id = Number(valor);
-  return Number.isInteger(id) && id > 0 ? id : null;
-};
+const { idValido } = require('../utils/validacion');
 
 // 1. Obtener los servicios que ofrece un barbero específico
 const obtenerServiciosPorBarbero = async (req, res) => {
@@ -39,7 +34,7 @@ const obtenerServiciosPorBarbero = async (req, res) => {
       servicios: resultado.rows
     });
   } catch (error) {
-    errorInterno(res, error);
+    errorInterno(res, error, 'Obtener Servicios Por Barbero');
   }
 };
 
@@ -101,7 +96,7 @@ const asignarServicioABarbero = async (req, res) => {
     if (error.code === '23503') {
       return res.status(400).json({ ok: false, message: 'El barbero o el servicio no existe' });
     }
-    errorInterno(res, error);
+    errorInterno(res, error, 'Asignar Servicio Abarbero');
   }
 };
 
@@ -135,7 +130,7 @@ const eliminarServicioDeBarbero = async (req, res) => {
       barbero_servicioID: resultado.rows[0].barbero_servicioID
     });
   } catch (error) {
-    errorInterno(res, error);
+    errorInterno(res, error, 'Eliminar Servicio De Barbero');
   }
 };
 

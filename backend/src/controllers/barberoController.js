@@ -25,7 +25,7 @@ const obtenerBarberos = async (req, res) => {
       barberos: resultado.rows
     });
   } catch (error) {
-    errorInterno(res, error);
+    errorInterno(res, error, 'Obtener Barberos');
   }
 };
 
@@ -66,7 +66,7 @@ const obtenerBarberoPorId = async (req, res) => {
 
     res.json({ ok: true, barbero: resultado.rows[0] });
   } catch (error) {
-    errorInterno(res, error);
+    errorInterno(res, error, 'Obtener Barbero Por Id');
   }
 };
 
@@ -137,7 +137,7 @@ const crearBarbero = async (req, res) => {
       return res.status(400).json({ ok: false, message: 'El usuario ya está registrado como barbero' });
     }
 
-    errorInterno(res, error);
+    errorInterno(res, error, 'Crear Barbero');
   }
 };
 

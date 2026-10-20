@@ -75,4 +75,4 @@ const reiniciarSiExito = (req, res, next) => {
  *   peticiones parecen venir de la misma IP y el límite se agota de golpe.
  */
 
-module.exports = { limitadorLogin, reiniciarSiExito, clavePorIp, MAX_INTENTOS, VENTANA_MS };
+module.exports = { limitadorLogin, reiniciarSiExito };

@@ -1,19 +1,10 @@
 const db = require('../config/db');
 const { errorInterno } = require('../utils/respuestaError');
+const { DIAS_SEMANA, horaAMinutos, esHoraValida, idValido } = require('../utils/validacion');
 
 // Días aceptados por el CHECK horario_laboral_dia_check (migración 004).
 // Se usan en minúsculas y sin tilde; citaController convierte la fecha al mismo nombre.
-const DIAS_VALIDOS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
-
-// Convierte una hora "HH:MM" o "HH:MM:SS" a minutos desde medianoche.
-const horaAMinutos = (hora) => {
-  const [h, m] = hora.split(':').map(Number);
-  return h * 60 + m;
-};
-
-// Valida el formato de hora que espera PostgreSQL para un tipo `time`.
-const esHoraValida = (valor) =>
-  typeof valor === 'string' && /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(valor.trim());
+const DIAS_VALIDOS = DIAS_SEMANA;
 
 // 1. Obtener los horarios de un barbero específico
 const obtenerHorariosPorBarbero = async (req, res) => {
@@ -48,7 +39,7 @@ const obtenerHorariosPorBarbero = async (req, res) => {
       horarios: resultado.rows
     });
   } catch (error) {
-    errorInterno(res, error);
+    errorInterno(res, error, 'Obtener Horarios Por Barbero');
   }
 };
 
@@ -117,7 +108,7 @@ const guardarHorario = async (req, res) => {
     if (error.code === '23514') {
       return res.status(400).json({ ok: false, message: 'Día u horario fuera de los valores permitidos' });
     }
-    errorInterno(res, error);
+    errorInterno(res, error, 'Guardar Horario');
   }
 };
 
@@ -155,7 +146,7 @@ const eliminarHorario = async (req, res) => {
       horarioID: resultado.rows[0].horarioID
     });
   } catch (error) {
-    errorInterno(res, error);
+    errorInterno(res, error, 'Eliminar Horario');
   }
 };
 
