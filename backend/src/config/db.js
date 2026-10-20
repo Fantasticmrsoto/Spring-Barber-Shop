@@ -1,13 +1,9 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: Number(process.env.DB_PORT) || 5432,
-});
+const { opcionesPool, resumenConexion } = require('./dbConfig');
+
+const pool = new Pool(opcionesPool());
 
 // Prueba de conexión al cargar el archivo.
 //
@@ -21,17 +17,16 @@ pool.query('SELECT NOW()', (err) => {
     console.error('\n❌ No se pudo conectar con PostgreSQL');
     console.error(`   ${err.message}`);
     console.error('\n   Revisa backend/.env:');
-    console.error(`     DB_HOST=${process.env.DB_HOST || '(sin definir)'}`);
-    console.error(`     DB_PORT=${process.env.DB_PORT || '(sin definir, se usa 5432)'}`);
-    console.error(`     DB_NAME=${process.env.DB_NAME || '(sin definir)'}`);
-    console.error(`     DB_USER=${process.env.DB_USER || '(sin definir)'}`);
-    if (!process.env.DB_PASSWORD) console.error('     DB_PASSWORD=(sin definir)');
+    console.error(`     ${resumenConexion()}`);
+    if (!process.env.DB_PASSWORD && !process.env.DATABASE_URL) {
+      console.error('     DB_PASSWORD=(sin definir)');
+    }
     console.error('\n   ¿La base de datos existe? Créala y aplica el esquema con:');
     console.error('     npm run migrate');
     console.error('');
     process.exit(1);
   }
-  console.log(`✅ Conexión exitosa a PostgreSQL (Base de datos: ${process.env.DB_NAME})`);
+  console.log(`✅ Conexión exitosa a PostgreSQL (Base de datos: ${process.env.DB_NAME || 'DATABASE_URL'})`);
 });
 
 // Ejecuta `fn` dentro de una transacción: si lanza, se hace ROLLBACK y se libera el cliente.
@@ -52,6 +47,7 @@ const withTransaction = async (fn) => {
 };
 
 module.exports = {
+  pool,
   query: (text, params) => pool.query(text, params),
   withTransaction,
 };

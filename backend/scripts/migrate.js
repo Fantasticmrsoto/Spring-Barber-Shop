@@ -18,17 +18,15 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
+const { opcionesPool } = require('../src/config/dbConfig');
 
 const DIRECTORIO_MIGRACIONES = path.resolve(__dirname, '../migrations');
 const SOLO_ESTADO = process.argv.includes('--status');
 
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: Number(process.env.DB_PORT) || 5432
-});
+// Misma configuración que usa la API: `DATABASE_URL` si está definida, o las
+// variables sueltas (DB_HOST, DB_USER, ...). Así las migraciones se pueden
+// aplicar contra la base de datos gestionada sin cambiar nada.
+const pool = new Pool(opcionesPool());
 
 const registrar = async (client) => {
   await client.query(`

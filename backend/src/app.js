@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 // Módulos de rutas
@@ -15,8 +17,46 @@ const transaccionRoutes = require('./routes/transaccionRoutes');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middlewares
-app.use(cors());
+/*
+ * `trust proxy`.
+ *
+ * En producción la app no se habla con el cliente directamente: hay un proxy o
+ * un balanceador delante (Render, Vercel, nginx, Cloudflare). Sin esto, todas
+ * las peticiones parecen venir de la IP del proxy y `req.ip` es siempre la
+ * misma, lo que hace que el limitador de intentos de login (10 por 15 min)
+ * se agote de golpe para todos los usuarios a la vez.
+ *
+ * El valor 1 indica "hay exactamente un proxy delante": se toma la última
+ * dirección de X-Forwarded-For, que es la que añadió el proxy de confianza.
+ * En local no se activa: no hay ningún proxy y activarlo permitiría falsear
+ * la IP con una cabecera.
+ */
+const TRUST_PROXY = process.env.TRUST_PROXY ?? (process.env.NODE_ENV === 'production' ? '1' : 'false');
+if (TRUST_PROXY !== 'false' && TRUST_PROXY !== false) {
+  app.set('trust proxy', TRUST_PROXY === 'true' ? 1 : TRUST_PROXY);
+}
+
+/*
+ * CORS.
+ *
+ * Por defecto se permite cualquier origen, que es lo que hace falta en
+ * desarrollo (la web corre en 5173 y la API en 3000) y también cuando la web
+ * y la API comparten dominio.
+ *
+ * En producción conviene restringirlos: `CORS_ORIGIN` con los dominios
+ * permitidos separados por comas, por ejemplo
+ * `CORS_ORIGIN=https://springbarbershop.com,https://www.springbarbershop.com`.
+ * Si no se define, se mantiene el comportamiento abierto.
+ */
+const origenesPermitidos = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+const opcionesCors = origenesPermitidos.length
+  ? { origin: origenesPermitidos }
+  : {};
+app.use(cors(opcionesCors));
 app.use(express.json());
 
 // Rutas de la API
@@ -29,14 +69,116 @@ app.use('/api/horarios', horarioRoutes);
 app.use('/api/barbero-servicios', barberoServicioRoutes);
 app.use('/api/transacciones', transaccionRoutes);
 
-// Ruta base
-app.get('/', (req, res) => {
+/*
+ * Web compilada (opcional).
+ *
+ * Permite desplegar la web y la API en un solo servicio: si existe la build de
+ * `frontend/dist`, se sirve como estático y cualquier ruta que no sea de la
+ * API devuelve el index.html, que es lo que necesita una SPA con react-router.
+ *
+ * Solo se activa en producción (o con `SERVE_FRONTEND=true`). En desarrollo la
+ * web la sirve Vite en el 5173 y la API se limita a la API: así `/` sigue
+ * devolviendo el JSON de la API, que es lo que comprueba la colección de
+ * Postman y lo que espera quien haga curl.
+ *
+ * Con `FRONTEND_DIST` se puede indicar la ruta; si no, se buscan las rutas
+ * habituales (repositorio y contenedor Docker).
+ */
+const SERVE_FRONTEND =
+  process.env.SERVE_FRONTEND === 'true' ||
+  (process.env.SERVE_FRONTEND === undefined && process.env.NODE_ENV === 'production');
+
+const candidatasFrontend = [
+  process.env.FRONTEND_DIST,
+  path.resolve(__dirname, '../../frontend/dist'),
+  '/app/frontend/dist',
+].filter(Boolean);
+
+const carpetaFrontend = SERVE_FRONTEND
+  ? candidatasFrontend.find((dir) => fs.existsSync(path.join(dir, 'index.html')))
+  : undefined;
+
+/*
+ * Ruta base de la API.
+ *
+ * Solo se registra si NO se está sirviendo la web desde el mismo proceso: en
+ * ese caso la raíz debe mostrar la aplicación, no un JSON. La información de
+ * la API sigue disponible en /api y en /api/salud.
+ */
+if (!carpetaFrontend) {
+  app.get('/', (req, res) => {
+    res.json({
+      ok: true,
+      message: '💈 API de Barbería ejecutándose correctamente',
+      timestamp: new Date().toISOString()
+    });
+  });
+}
+/*
+ * Sonda de estado.
+ *
+ * La usan los proveedores de hosting para comprobar que el servicio está vivo
+ * y, sobre todo, que puede hablar con la base de datos: un servicio que
+ * arranca pero no conecta con PostgreSQL no sirve de nada.
+ */
+app.get('/api/salud', async (req, res) => {
+  try {
+    const { query } = require('./config/db');
+    await query('SELECT 1');
+    res.json({ ok: true, status: 'sano', timestamp: new Date().toISOString() });
+  } catch (error) {
+    res.status(503).json({ ok: false, status: 'sin base de datos', error: error.message });
+  }
+});
+
+// Información de la API. Se registra siempre, incluso cuando la web se
+// sirve desde este mismo proceso.
+app.get('/api', (req, res) => {
   res.json({
     ok: true,
     message: '💈 API de Barbería ejecutándose correctamente',
+    docs: 'documentacion/API.md',
     timestamp: new Date().toISOString()
   });
 });
+
+/*
+ * API inexistente: siempre JSON, nunca el index.html de la SPA. Un fetch a
+ * una ruta de API equivocada debe dejar claro que el error es de la API.
+ */
+app.use('/api', (req, res) => {
+  res.status(404).json({
+    ok: false,
+    message: 'Recurso no encontrado'
+  });
+});
+
+/*
+ * Servidor de la web compilada (si existe).
+ *
+ * Los archivos de `assets/` llevan hash en el nombre, así que no cambian nunca
+ * y se cachean para siempre. El index.html sí cambia en cada build, de ahí el
+ * `no-cache`: si no, el navegador seguiría mostrando la versión anterior.
+ */
+if (carpetaFrontend) {
+  console.log(`🌐 Sirviendo la web compilada desde ${carpetaFrontend}`);
+  app.use(
+    express.static(carpetaFrontend, {
+      setHeaders: (res, rutaArchivo) => {
+        if (rutaArchivo.includes(`${path.sep}assets${path.sep}`)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+      }
+    })
+  );
+  // Cualquier otra ruta GET devuelve el index.html: es lo que necesita una
+  // SPA con react-router (/reservar, /login, /panel...).
+  app.use((req, res, next) => {
+    if (req.method !== 'GET') return next();
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(path.join(carpetaFrontend, 'index.html'));
+  });
+}
 
 // Rutas no encontradas (debe ir después de montar los routers, antes de app.listen)
 app.use((req, res) => {
@@ -47,6 +189,39 @@ app.use((req, res) => {
 });
 
 // Iniciar servidor
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
 });
+
+/*
+ * Cierre ordenado.
+ *
+ * Las plataformas de hosting (Render, Railway, Fly) avisan con SIGTERM antes
+ * de apagar el servicio. Sin esto, Node mata el proceso en seco y las
+ * peticiones que estaban en vuelo se cortan con un error de red en lugar de
+ * terminar bien.
+ */
+const cerrar = (senal) => {
+  console.log(`\n👋 ${senal} recibido, cerrando el servidor...`);
+  server.close(async () => {
+    try {
+      const { pool } = require('./config/db');
+      await pool.end();
+    } catch (error) {
+      console.error('   Error al cerrar el pool de PostgreSQL:', error.message);
+    }
+    process.exit(0);
+  });
+  // Si algún cliente se queda colgado, se corta de todas formas.
+  setTimeout(() => {
+    console.error('   Cierre forzado tras 10s');
+    process.exit(1);
+  }, 10000).unref();
+};
+
+process.on('SIGTERM', () => cerrar('SIGTERM'));
+process.on('SIGINT', () => cerrar('SIGINT'));
+
+// Se exporta la app (y no solo el servidor) para poder probarla sin abrir
+// un puerto: `require('./src/app')` y se trabaja con el objeto de Express.
+module.exports = app;
