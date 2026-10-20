@@ -212,6 +212,37 @@ algún día quitas Cloudflare del camino, el sitio sigue teniendo HTTPS.
 
 ## Problemas frecuentes
 
+**`password authentication failed for user 'neondb_owner'`**
+→ La contraseña de Neon no es la correcta. Ojo: este error NO es de SSL ni del
+host, aunque lo parezca. Para distinguirlo:
+
+```bash
+# desde tu equipo, con la contraseña que crees tener
+node -e "
+const {Client}=require('./backend/node_modules/pg');
+const c=new Client({host:'ep-xxx-pooler.region.aws.neon.tech',port:5432,user:'neondb_owner',password:'TU_PASSWORD',database:'neondb',ssl:{rejectUnauthorized:false}});
+c.connect().then(()=>c.query('select 1')).then(()=>console.log('OK')).catch(e=>console.log('ERROR:',e.message)).finally(()=>c.end());
+"
+```
+
+- Si dice `connection is insecure (try using sslmode=require)` → falta SSL.
+  La versión nueva de la API lo activa solo con la URL de Neon; si usas el
+  código antiguo, define `PGSSLMODE=require` en el panel de Render.
+- Si dice `password authentication failed` → la contraseña está mal. Vuelve al
+  panel de Neon → *Connection* → copia la cadena **entera** y de una vez
+  (a veces se copia un password antiguo, o el de otro proyecto). Si tienes
+  dudas, usa *Reset password* en Neon y pega la nueva.
+
+**`relation "usuario" does not exist`**
+→ La base de datos está vacía: faltan las migraciones. En Render, el Start
+Command debe ser `npm run start:prod` (migra y arranca) o `npm run migrate &&
+npm start`. Con el runtime de Node, `npm start` a secas no migra.
+
+**Render despliega una versión antigua del código**
+→ Comprueba la rama en *Settings → Build & Deploy → Branch*. Si desplegas
+`main`, `main` tiene que estar al día. Y comprueba el commit en el log del
+build: dice exactamente qué versión se instaló.
+
 **La web carga pero no hay datos / "No se pudo conectar con el servidor"**
 → `VITE_API_URL` mal puesta, o la API dormida (plan gratuito). Mira la
 consola del navegador: ahí sale la URL exacta a la que intenta llamar.

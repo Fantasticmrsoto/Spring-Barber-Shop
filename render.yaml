@@ -36,3 +36,16 @@ services:
       # Si la API vive en api.dominio.com, hay que restringirlo:
       # - key: CORS_ORIGIN
       #   value: https://springbarbershop.com,https://www.springbarbershop.com
+#
+# ---------------------------------------------------------------------------
+# Si en lugar de este blueprint se crea un "Web Service" con el runtime de
+# Node (sin Docker), la configuración equivalente es:
+#
+#   Root Directory:  backend
+#   Build Command:   npm install
+#   Start Command:   npm run start:prod     <- aplica migraciones y arranca
+#   Health Check:    /api/salud
+#
+# El Start Command importa: sin él, la base de datos se queda sin esquema y
+# todas las peticiones fallan con "relation does not exist".
+# ---------------------------------------------------------------------------
