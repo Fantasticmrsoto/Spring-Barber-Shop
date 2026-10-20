@@ -4,10 +4,24 @@ Cómo pasar la aplicación de "abre la IP de mi portátil" a **https://springbar
 con HTTPS, accesible desde cualquier móvil del mundo y sin depender de que tu
 equipo esté encendido.
 
-Todo lo que hay aquí está **preparado en el repositorio** (Dockerfile, `render.yaml`,
-`vercel.json`, variables de entorno). Lo que falta es lo que solo tú puedes hacer:
-crear las cuentas, comprar el dominio y pegar las claves. Esta guía te lleva paso a
-paso, en orden.
+Todo lo que hay aquí está **preparado en el repositorio** (`Dockerfile`,
+`render.yaml`, `frontend/vercel.json`, variables de entorno). Lo que falta es lo
+que solo tú puedes hacer: crear las cuentas, comprar el dominio y pegar las
+claves. Esta guía te lleva paso a paso, en orden.
+
+> **Nota sobre lo que hay en el repositorio y lo que está desplegado.** El
+> `render.yaml` define el servicio con el runtime de **Docker** (que compila la
+> web y la API en una sola imagen), pero el despliegue actual usa el runtime de
+> **Node** con `Root Directory: backend`. Las dos formas funcionan; lo único que
+> cambia es el *Start Command*:
+>
+> | Runtime | Start Command | Migraciones |
+> |---|---|---|
+> | Node (el actual) | `npm run start:prod` | Las aplica antes de arrancar |
+> | Docker (el del blueprint) | `npm run migrate && node src/app.js` | Ya está en el `CMD` |
+>
+> Con cualquiera de las dos, la API comprueba el esquema al arrancar y lo
+> aplica si la base está vacía.
 
 ---
 
@@ -82,8 +96,13 @@ después es fácil (basta con quitar `VITE_API_URL`).
 
 4. **No hace falta que apliques el esquema a mano.** La API comprueba al
    arrancar si la base de datos tiene las tablas y, si no, aplica las
-   migraciones sola (son idempotentes, así que solo aplica lo que falta).
-   Basta con que el primer despliegue tenga ya la `DATABASE_URL` correcta.
+   migraciones sola. Basta con que el primer despliegue tenga ya la
+   `DATABASE_URL` correcta.
+
+   Ojo con el alcance: la comprobación mira si existe la tabla `servicios`, así
+   que la migración automática cubre el caso de la base **vacía**. Si la base
+   está a medio migrar (tiene el esquema base pero le faltan las migraciones
+   001-006), hay que aplicarlas a mano con `npm run migrate`.
 
    Si prefieres hacerlo a mano, las dos formas son equivalentes:
 

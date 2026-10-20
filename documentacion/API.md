@@ -3,7 +3,14 @@
 Contrato de `http://localhost:3000` para construir el frontend.
 
 La colección de Postman (`postman/My Collection.postman_collection.json`) ejercita todo
-lo de esta tabla: 28 peticiones y 49 aserciones. Es la fuente de verdad ejecutable.
+lo de esta tabla: 30 peticiones y 53 aserciones (`pm.test` + `pm.expect`). Es la
+fuente de verdad ejecutable.
+
+```bash
+# con la API levantada en local
+npx newman run "postman/My Collection.postman_collection.json" \
+  --env-var "base_url=http://localhost:3000"
+```
 
 ---
 
@@ -40,18 +47,31 @@ dato; las de error, `message` o `error`.
 **Errores.** No hay campo `errors` ni validación por campo: el `message` es una frase
 lista para mostrar al usuario. La API no distingue campos: o acepta o devuelve 400.
 
+**Formato de la respuesta de error.** Los 4xx usan la clave `message`; los 5xx usan
+`error`. El frontend acepta las dos (`mensajeDeError` en `src/api/client.js`).
+
+**Errores inesperados.** Cualquier excepción que se escape de los controladores la
+recoge el manejador global de `src/app.js` y se devuelve **siempre en JSON**, nunca
+en HTML. Si la excepción es por un esquema sin aplicar (código `42P01` de
+PostgreSQL), el mensaje lo dice: *"La base de datos no tiene el esquema aplicado.
+Ejecuta las migraciones: npm run migrate"*.
+
 **IDs.** Siempre enteros positivos en la URL. Un id no numérico (`abc`, `1.5`, `-1`)
 devuelve `400`, no `500`.
 
-**Fechas.** Entrada ISO: `2026-10-05T10:00:00`. Salida ISO con `Z`.
+**Fechas.** Entrada ISO: `2026-10-05T10:00:00`. Salida ISO con `Z`. La conversión a
+UTC la hace el servidor, así que la hora que sale depende de la zona horaria de
+donde esté desplegado: una cita de las 10:00 sale como `10:00:00.000Z` en un
+servidor en UTC y como `14:00:00.000Z` en uno en UTC-4 (Venezuela). No es un error
+de la API, pero conviene saberlo al comparar con la base de datos.
 
 **Roles.** `cliente` (por defecto), `barbero`, `administrador`.
 
 | Rol | Puede |
 |---|---|
 | `cliente` | Agendar y listar citas |
-| `barbero` | Lo de cliente + cambiar estado de cita, gestionar su horario y sus servicios, ver el saldo |
-| `administrador` | Todo lo anterior |
+| `barbero` | Lo de cliente + cambiar estado de cita, gestionar su horario y sus servicios |
+| `administrador` | Todo lo anterior + el libro de saldo (`/api/transacciones`) |
 
 ---
 
@@ -157,7 +177,9 @@ cuentas distintas.
   "precio": "15.00", "duracion_minutos": 30 }
 ```
 
-`precio` y `duracion_minutos` son obligatorios y positivos. `precio` sale como string
+`precio` y `duracion_minutos` son obligatorios. `precio` no puede ser negativo y
+tiene un máximo de `99999999.99` (el límite de la columna `numeric(10,2)`);
+`duracion_minutos` debe ser un entero mayor que cero. `precio` sale como string
 (numérico de PostgreSQL), no como número.
 
 > No hay `PUT` ni `DELETE`. Para modificar o borrar un servicio hay que hacerlo
@@ -347,3 +369,43 @@ Si el frontend necesita gestionar el catálogo, la API tiene estos huecos:
 | Auth | `POST /api/auth/logout` (hoy no hay revocación) |
 
 Solo **usuarios** tiene el CRUD completo.
+
+---
+
+## ⚠️ El frontend usa endpoints que la API no tiene
+
+El frontend se construyó contra un contrato más grande que el que la API
+implementa hoy. Estas llamadas **no tienen ruta en el backend**:
+
+| Endpoint que llama el frontend | Dónde se usa | Qué se ve en pantalla |
+|---|---|---|
+| `GET /api/citas/ocupados` | `pages/Reservar.jsx` | Las horas ya ocupadas no se marcan |
+| `PUT /api/citas/:id` (reprogramar) | `pages/Reservar.jsx` | El botón "Reprogramar" no funciona |
+| `POST /api/citas/publica` | `pages/Reservar.jsx` | La cita de invitado no se crea |
+| `GET /api/citas/publica/:codigo` | `pages/CitaPublica.jsx` | El enlace de cita pública da 404 |
+| `PUT /api/citas/publica/:codigo/estado` | `pages/CitaPublica.jsx` | No se puede cancelar desde el enlace |
+| `POST /api/auth/recuperar` | `pages/Recuperar.jsx` | "Recuperar contraseña" no hace nada |
+| `PUT /api/usuarios/perfil` | `pages/Perfil.jsx` | Guardar el perfil da 400 (cae en `/:id`) |
+| `PUT /api/barberos/:id` | `pages/PanelBarbero.jsx` | No se puede editar la ficha del barbero |
+| `POST /api/barberos/:id/foto` | `pages/PanelBarbero.jsx` | No se puede subir la foto |
+| `GET/POST /api/barberos/:id/resenas` | `components/ModalBarbero.jsx` | Reseñas: siempre vacío |
+| `GET /api/barberos/resenas` | `pages/admin/AdminResenas.jsx` | La pestaña de reseñas da 400 |
+| `DELETE /api/barberos/resenas/:id` | `pages/admin/AdminResenas.jsx` | No se puede borrar una reseña |
+| `PUT/DELETE /api/servicios/:id` | `pages/admin/AdminServicios.jsx` | No se puede editar ni borrar un servicio |
+| `GET /api/transacciones/:id` y `/:id/aprobar`, `/:id/rechazar` | `pages/admin/AdminTransacciones.jsx` | No se pueden aprobar pagos |
+| `GET /api/estadisticas/resumen` | `pages/admin/AdminResumen.jsx` | El panel de métricas no carga |
+
+Los dos que fallan con `400` en lugar de `404` (`/api/usuarios/perfil` y
+`/api/barberos/resenas`) son los que más confunden: chocan con la ruta `/:id` y
+el mensaje que sale ("El ID debe ser un número entero válido") no dice nada
+del problema real.
+
+Además, `POST /api/transacciones` existe pero con **otro contrato**: la API
+espera `usuarioID`, `tipo_movimiento`, `monto`, `saldo_restante` y
+`referencia_pago` (es un libro de saldo), mientras que el frontend envía
+`citaID`, `metodo_pago`, `referencia_pago` y `monto` (es un pago de cita). Son
+dos modelos distintos y no son intercambiables.
+
+Para cerrar la brecha hay dos caminos: implementar los endpoints que faltan en
+la API, o desactivar en la web las funciones que no tienen soporte. Mientras no
+se elija uno, esas partes de la interfaz fallan en silencio.
