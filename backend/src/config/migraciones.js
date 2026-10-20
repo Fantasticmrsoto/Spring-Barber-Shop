@@ -22,6 +22,11 @@ const { opcionesPool } = require('./dbConfig');
 
 const DIRECTORIO_MIGRACIONES = path.resolve(__dirname, '../../migrations');
 
+// Clave del cerrojo de aplicación de migraciones. Es un número cualquiera,
+// fijo para este proyecto: lo que importa es que todas las instancias usen
+// la misma.
+const LOCK_MIGRACIONES = 918_273;
+
 const registrar = async (client) => {
   await client.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -57,28 +62,46 @@ const ejecutarMigraciones = async ({ soloEstado = false, silencioso = false, poo
 
   const client = await conexion.connect();
   try {
-    await registrar(client);
-    const aplicadas = new Set(
-      (await client.query('SELECT nombre FROM schema_migrations')).rows.map((r) => r.nombre)
-    );
-    const migraciones = listarMigraciones();
-    resultado.total = migraciones.length;
+    /*
+     * Cerrojo de aplicación.
+     *
+     * Como las migraciones se aplican al arrancar, dos instancias que
+     * arrancan a la vez podrían aplicar la misma migración y chocar en el
+     * INSERT de `schema_migrations` (clave primaria). El cerrojo de
+     * PostgreSQL serializa el proceso: el segundo espera a que el primero
+     * termine y entonces ya no queda nada pendiente.
+     *
+     * El cerrojo es de sesión, así que se suelta al liberar el cliente.
+     */
+    await client.query('SELECT pg_advisory_lock($1)', [LOCK_MIGRACIONES]);
 
-    if (soloEstado) {
-      log(`\n  Migraciones (${aplicadas.size} aplicadas de ${migraciones.length}):\n`);
-      for (const m of migraciones) {
-        log(`    ${aplicadas.has(m.nombre) ? '✓ aplicada' : '· PENDIENTE'}  ${m.nombre}`);
+    try {
+      await registrar(client);
+      const aplicadas = new Set(
+        (await client.query('SELECT nombre FROM schema_migrations')).rows.map((r) => r.nombre)
+      );
+      const migraciones = listarMigraciones();
+      resultado.total = migraciones.length;
+
+      if (soloEstado) {
+        log(`\n  Migraciones (${aplicadas.size} aplicadas de ${migraciones.length}):\n`);
+        for (const m of migraciones) {
+          log(`    ${aplicadas.has(m.nombre) ? '✓ aplicada' : '· PENDIENTE'}  ${m.nombre}`);
+        }
+        log('');
+        return resultado;
       }
-      log('');
-      return resultado;
-    }
 
     const pendientes = migraciones.filter((m) => !aplicadas.has(m.nombre));
     resultado.pendientes = pendientes.length;
 
     if (pendientes.length === 0) {
+      // En un arranque normal no hay nada que aplicar, así que el mensaje es
+      // de una línea para no llenar el log del despliegue.
       log(
-        `\n  Nada que aplicar. Las ${migraciones.length} migraciones ya están en la base.\n`
+        silencioso
+          ? ''
+          : `   Las ${migraciones.length} migraciones ya están aplicadas.`
       );
       return resultado;
     }
@@ -107,6 +130,10 @@ const ejecutarMigraciones = async ({ soloEstado = false, silencioso = false, poo
       log(`\n  ${resultado.aplicadas} migración(es) aplicada(s).\n`);
     }
     return resultado;
+    } finally {
+      // Se suelta el cerrojo antes de liberar el cliente.
+      await client.query('SELECT pg_advisory_unlock($1)', [LOCK_MIGRACIONES]).catch(() => {});
+    }
   } finally {
     client.release();
     if (propio) await conexion.end();

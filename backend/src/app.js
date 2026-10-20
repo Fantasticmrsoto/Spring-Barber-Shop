@@ -261,9 +261,15 @@ app.use((err, req, res, next) => {
  * carga pero con todas las secciones de datos en error, y lo peor es que no
  * es un fallo de arranque: el servicio parece sano.
  *
- * Para que eso no dependa de un paso manual, al arrancar se comprueba si el
- * esquema está y, si no, se aplican las migraciones pendientes. Son
- * idempotentes, así que solo se aplica lo que falta.
+ * Para que eso no dependa de un paso manual, al arrancar se aplican las
+ * migraciones pendientes. Son idempotentes y el runner registra cuáles se
+ * aplicaron, así que solo se aplica lo que falta.
+ *
+ * Se aplican **siempre**, no solo cuando la base está vacía. Antes se
+ * comprobaba si existía la tabla `servicios` y, si existía, no se hacía
+ * nada: con una base a medio migrar (el caso normal en cuanto se añade una
+ * migración nueva) las nuevas se quedaban sin aplicar y la aplicación se
+ * quedaba rota sin ningún aviso.
  *
  * Se puede desactivar con `AUTO_MIGRATE=false`, por ejemplo si la base de
  * datos es de solo lectura para la aplicación.
@@ -273,11 +279,8 @@ const prepararBaseDeDatos = async () => {
 
   try {
     const { pool } = require('./config/db');
-    const { esquemaPresente, ejecutarMigraciones } = require('./config/migraciones');
+    const { ejecutarMigraciones } = require('./config/migraciones');
 
-    if (await esquemaPresente(pool)) return;
-
-    console.log('⚠️  La base de datos no tiene el esquema. Aplicando migraciones...');
     const resultado = await ejecutarMigraciones({ pool });
 
     if (resultado.errores.length > 0) {
