@@ -1,16 +1,28 @@
-# React + Vite
+# Frontend — Spring Barber Shop
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Web de Spring Barber Shop: React + Vite + Tailwind CSS, con diseño adaptable a
+móvil.
 
-Currently, two official plugins are available:
+## Comandos
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+npm run dev      # servidor de desarrollo en http://localhost:5173 (escucha en 0.0.0.0)
+npm run build    # build de producción en dist/
+npm run lint     # Oxlint
+npm run preview  # sirve la build de producción
+```
 
-## React Compiler
+## Configuración
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Todo funciona sin variables de entorno: la URL de la API se deduce del host
+con el que se sirvió la web (`http://<host>:3000`), de modo que la app
+responde igual en el PC y en el móvil aunque cambie la IP del equipo.
 
-## Expanding the Oxlint configuration
+Si necesitas apuntar a otro backend, copia `frontend/.env.example` a
+`frontend/.env` y define `VITE_API_URL`.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Documentación
+
+La API está documentada en [`../documentacion/API.md`](../documentacion/API.md).
+Las instrucciones generales del proyecto están en el [README raíz](../README.md).

@@ -1,8 +1,16 @@
 import axios from 'axios'
 
-// El backend expone todo bajo http://localhost:3000 (ver documentacion/API.md).
-// Se puede sobreescribir con VITE_API_URL en un archivo .env.
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+// El backend expone todo bajo http://<host>:3000 (ver documentacion/API.md).
+// Por defecto el host se deduce del que se sirvio la web, de modo que la app
+// funciona igual en el PC (localhost) que en el movil (IP de la red local)
+// sin editar nada cuando la IP del equipo cambia. Si hace falta apuntar a
+// otro backend, se define VITE_API_URL en un archivo .env.
+const API_POR_DEFECTO =
+  typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.hostname}:3000`
+    : 'http://localhost:3000'
+
+export const API_URL = import.meta.env.VITE_API_URL || API_POR_DEFECTO
 
 export const TOKEN_KEY = 'barberia.token'
 

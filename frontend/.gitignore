@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Variables de entorno (contienen IPs locales y credenciales)
+.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -21,4 +24,4 @@ dist-ssr
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
+*.suo
