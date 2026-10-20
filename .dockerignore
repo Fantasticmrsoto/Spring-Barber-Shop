@@ -1,0 +1,29 @@
+# dependencias: se instalan dentro de la imagen
+node_modules
+**/node_modules
+
+# builds: la web se compila dentro de la imagen
+dist
+**/dist
+
+# git y metadatos
+.git
+.github
+.gitignore
+
+# variables de entorno (nunca deben entrar en la imagen)
+.env
+**/.env
+!.env.example
+**/.env.example
+
+# logs y temporales
+*.log
+backend/server.log
+newman-report.*
+
+# documentación pesada que no hace falta en runtime
+*.docx
+documentacion
+postman
+baseDeDatos_scrip

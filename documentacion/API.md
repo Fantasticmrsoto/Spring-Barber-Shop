@@ -7,6 +7,24 @@ lo de esta tabla: 28 peticiones y 49 aserciones. Es la fuente de verdad ejecutab
 
 ---
 
+## Rutas base
+
+| Ruta | Qué devuelve |
+|---|---|
+| `GET /` | Estado de la API en JSON. En producción, si la web se sirve desde el mismo proceso, devuelve la web (ver abajo) |
+| `GET /api` | Estado de la API en JSON. Siempre disponible, también en producción |
+| `GET /api/salud` | Sonda de estado: `200` si la API responde **y** la base de datos está accesible, `503` si no |
+
+`/api/salud` es la ruta que usan las plataformas de hosting para comprobar el
+servicio, y la que conviene usar en monitorización.
+
+En producción la web y la API comparten dominio: la web se sirve en `/` y la API
+en `/api/*`. Por eso `GET /` devuelve el `index.html` de la SPA y no un JSON.
+La colección de Postman se ejecuta contra el entorno de desarrollo, donde `/`
+sí devuelve el JSON de la API.
+
+---
+
 ## Convenciones
 
 **Formato de respuesta.** Siempre JSON con `ok`. Las de éxito incluyen `message` y el

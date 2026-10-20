@@ -69,6 +69,33 @@ Detalles a tener en cuenta:
 - El puerto 5173 es estricto: si ya está ocupado, Vite avisa en consola y se
   detiene en lugar de arrancar una segunda copia en otro puerto.
 
+## Despliegue en la nube
+
+Para que la web funcione desde cualquier móvil (no solo en tu wifi) hace falta
+publicarla con un dominio propio. El repositorio ya viene preparado:
+
+| Pieza | Dónde | Fichero |
+|---|---|---|
+| Web (React) | Vercel | `frontend/vercel.json` |
+| API (Express) | Render | `Dockerfile`, `render.yaml` |
+| Base de datos | Neon | `backend/src/config/dbConfig.js` |
+| Dominio y DNS | Cloudflare | — |
+
+La guía paso a paso (cuentas, DNS, variables, lista de comprobación y
+problemas frecuentes) está en
+**[`documentacion/DESPLIEGUE.md`](documentacion/DESPLIEGUE.md)**.
+
+Resumen de lo que hace posible el despliegue:
+
+- La API acepta `DATABASE_URL` (con SSL) para bases de datos gestionadas.
+- `trust proxy` activo en producción: sin él, el limitador de intentos de login
+  se agota para todos los usuarios a la vez, porque todas las peticiones parecen
+  venir de la IP del proxy.
+- Sonda de estado en `/api/salud` y cierre ordenado al recibir `SIGTERM`.
+- En producción la web llama a `/api` en el mismo dominio, así que no hay CORS.
+- El `Dockerfile` compila la web y la API, de forma que también se puede
+  desplegar todo en un único servicio.
+
 ## Pruebas E2E
 
 El workflow `.github/workflows/newman.yml` levanta PostgreSQL, aplica las

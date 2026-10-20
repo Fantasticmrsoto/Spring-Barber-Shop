@@ -1,0 +1,38 @@
+# Blueprint de Render (https://render.com/docs/blueprint-spec).
+#
+# Define el servicio web de la API. Con este archivo, Render puede crear el
+# servicio solo leyendo el repositorio: en el panel, "New > Blueprint" y se
+# elige este repositorio.
+#
+# La base de datos NO se define aquí a propósito: el plan gratuito de Render
+# para PostgreSQL caduca a los 30 días. Se usa Neon (plan gratuito sin
+# caducidad) y se pega su URL de conexión en la variable DATABASE_URL.
+services:
+  - type: web
+    name: springbarber-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /api/salud
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Se genera un valor aleatorio en el panel de Render. La app no arranca
+      # sin JWT_SECRET: es el secreto con el que se firman los tokens.
+      - key: JWT_SECRET
+        generateValue: true
+      # Hay un proxy de Render delante de la app: sin esto, todas las
+      # peticiones parecerían venir de la misma IP y el limitador de intentos
+      # de login se agotaría para todos los usuarios a la vez.
+      - key: TRUST_PROXY
+        value: "1"
+      # URL de conexión de Neon. Se rellena en el panel (sync: false = no
+      # se pide en el momento de crear el blueprint).
+      - key: DATABASE_URL
+        sync: false
+      # Si la web y la API comparten dominio, CORS no hace falta (same-origin).
+      # Si la API vive en api.dominio.com, hay que restringirlo:
+      # - key: CORS_ORIGIN
+      #   value: https://springbarbershop.com,https://www.springbarbershop.com
