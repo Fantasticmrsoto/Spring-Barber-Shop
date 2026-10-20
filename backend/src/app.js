@@ -219,10 +219,60 @@ app.use((req, res) => {
   });
 });
 
+/*
+ * Migraciones automáticas al arrancar.
+ *
+ * Una base de datos recién creada (Neon, Render Postgres, un `CREATE DATABASE`
+ * en local) acepta conexiones sin problema y falla en todas las consultas con
+ * "relation does not exist". En un despliegue, eso significa una web que
+ * carga pero con todas las secciones de datos en error, y lo peor es que no
+ * es un fallo de arranque: el servicio parece sano.
+ *
+ * Para que eso no dependa de un paso manual, al arrancar se comprueba si el
+ * esquema está y, si no, se aplican las migraciones pendientes. Son
+ * idempotentes, así que solo se aplica lo que falta.
+ *
+ * Se puede desactivar con `AUTO_MIGRATE=false`, por ejemplo si la base de
+ * datos es de solo lectura para la aplicación.
+ */
+const prepararBaseDeDatos = async () => {
+  if (process.env.AUTO_MIGRATE === 'false') return;
+
+  try {
+    const { pool } = require('./config/db');
+    const { esquemaPresente, ejecutarMigraciones } = require('./config/migraciones');
+
+    if (await esquemaPresente(pool)) return;
+
+    console.log('⚠️  La base de datos no tiene el esquema. Aplicando migraciones...');
+    const resultado = await ejecutarMigraciones({ pool });
+
+    if (resultado.errores.length > 0) {
+      console.error('\n❌ No se pudieron aplicar todas las migraciones:');
+      for (const error of resultado.errores) console.error(`   ${error}`);
+      console.error('');
+      process.exit(1);
+    }
+  } catch (error) {
+    // Si la base de datos no responde, no es un problema de esquema: se
+    // sigue arrancando y el aviso de conexión de config/db.js es el que vale.
+    console.error(`   Aviso: no se pudo comprobar el esquema (${error.message})`);
+  }
+};
+
 // Iniciar servidor
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-});
+let server;
+
+const iniciar = async () => {
+  // Antes de aceptar tráfico: si falta el esquema, se aplica.
+  await prepararBaseDeDatos();
+
+  server = app.listen(PORT, () => {
+    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+  });
+};
+
+iniciar();
 
 /*
  * Cierre ordenado.
@@ -234,6 +284,7 @@ const server = app.listen(PORT, () => {
  */
 const cerrar = (senal) => {
   console.log(`\n👋 ${senal} recibido, cerrando el servidor...`);
+  if (!server) return process.exit(0);
   server.close(async () => {
     try {
       const { pool } = require('./config/db');

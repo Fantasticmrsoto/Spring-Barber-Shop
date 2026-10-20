@@ -80,19 +80,28 @@ después es fácil (basta con quitar `VITE_API_URL`).
    Guárdalo: es la clave de toda la base de datos. Si la pierdes, se puede
    regenerar desde el panel.
 
-4. **Importa el esquema.** Hay dos formas:
-   - **Desde el panel de Neon** (la más fácil): abre el *SQL Editor*, y ejecuta
-     los archivos de `backend/migrations/` **en orden alfabético**, de
-     `000_esquema_base.sql` a `006_modulo_transacciones.sql`.
-   - **Desde tu equipo**, con la URL de conexión:
+4. **No hace falta que apliques el esquema a mano.** La API comprueba al
+   arrancar si la base de datos tiene las tablas y, si no, aplica las
+   migraciones sola (son idempotentes, así que solo aplica lo que falta).
+   Basta con que el primer despliegue tenga ya la `DATABASE_URL` correcta.
+
+   Si prefieres hacerlo a mano, las dos formas son equivalentes:
+
+   - **Desde el panel de Neon** (SQL Editor): ejecutar los archivos de
+     `backend/migrations/` **en orden alfabético**, de `000_esquema_base.sql` a
+     `006_modulo_transacciones.sql`.
+   - **Desde tu equipo**:
 
      ```bash
      cd backend
      DATABASE_URL="postgresql://..." npm run migrate
      ```
 
-     El runner registra cada migración aplicada en la tabla `schema_migrations`,
-     así que es idempotente: se puede repetir sin miedo.
+   Y para comprobar el estado:
+
+     ```bash
+     DATABASE_URL="postgresql://..." npm run migrate:status
+     ```
 
 5. Crea un **usuario administrador** para poder entrar al panel. Las migraciones
    crean el esquema, pero no el primer usuario. Puedes hacerlo con la API:
@@ -234,9 +243,20 @@ c.connect().then(()=>c.query('select 1')).then(()=>console.log('OK')).catch(e=>c
   dudas, usa *Reset password* en Neon y pega la nueva.
 
 **`relation "usuario" does not exist`**
-→ La base de datos está vacía: faltan las migraciones. En Render, el Start
-Command debe ser `npm run start:prod` (migra y arranca) o `npm run migrate &&
-npm start`. Con el runtime de Node, `npm start` a secas no migra.
+→ La base de datos está vacía: faltan las migraciones. La API las aplica sola
+al arrancar; si sigue apareciendo, comprueba que la `DATABASE_URL` apunta a la
+base correcta (en Neon, cada rama tiene la suya) y mira el log del despliegue:
+debería verse "Aplicando 7 de 7 migraciones".
+
+Para aplicarlas a mano:
+
+```bash
+cd backend
+DATABASE_URL="postgresql://..." npm run migrate
+```
+
+Y para desactivarlas al arrancar (por ejemplo, si el usuario de la base de
+datos no puede crear tablas): `AUTO_MIGRATE=false`.
 
 **La web carga pero sale "Error interno del servidor" en las secciones de datos**
 → Es el mismo problema: la API conecta con la base de datos (por eso

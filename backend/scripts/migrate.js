@@ -1,92 +1,27 @@
 /*
- * Runner de migraciones.
+ * Runner de migraciones (línea de comandos).
  *
  * Uso:  node scripts/migrate.js          aplica las pendientes
  *       node scripts/migrate.js --status  solo muestra el estado
  *
- * Las migraciones son archivos .sql en backend/migrations, numerados por
- * prefijo y aplicadas en orden ascendente. Cada una debe ser idempotente, porque el
- * runner registra cuál se aplicó y solo salta las ya registradas.
- *
- * El registro vive en la tabla `schema_migrations`, creada aquí si no existe. Así el
- * esquema de la base se puede reconstruir desde cero clonando el repositorio, sin
- * depender de que alguien recuerde qué se ejecutó a mano.
+ * El motor está en src/config/migraciones.js, que también usa la API al
+ * arrancar para aplicar las migraciones automáticamente si la base de datos
+ * está vacía.
  */
 
 require('dotenv').config();
 
-const fs = require('fs');
-const path = require('path');
-const { Pool } = require('pg');
-const { opcionesPool } = require('../src/config/dbConfig');
+const { ejecutarMigraciones } = require('../src/config/migraciones');
 
-const DIRECTORIO_MIGRACIONES = path.resolve(__dirname, '../migrations');
 const SOLO_ESTADO = process.argv.includes('--status');
 
-// Misma configuración que usa la API: `DATABASE_URL` si está definida, o las
-// variables sueltas (DB_HOST, DB_USER, ...). Así las migraciones se pueden
-// aplicar contra la base de datos gestionada sin cambiar nada.
-const pool = new Pool(opcionesPool());
-
-const registrar = async (client) => {
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS schema_migrations (
-      nombre     text PRIMARY KEY,
-      aplicada_en timestamp NOT NULL DEFAULT now()
-    )
-  `);
-};
-
-// Devuelve [{ nombre, ruta }] en orden ascendente por nombre de archivo.
-const listarMigraciones = () =>
-  fs.readdirSync(DIRECTORIO_MIGRACIONES)
-    .filter((f) => f.endsWith('.sql'))
-    .sort()
-    .map((f) => ({ nombre: f, ruta: path.join(DIRECTORIO_MIGRACIONES, f) }));
-
 (async () => {
-  const client = await pool.connect();
-  try {
-    await registrar(client);
-    const aplicadas = new Set(
-      (await client.query('SELECT nombre FROM schema_migrations')).rows.map((r) => r.nombre)
-    );
-    const migraciones = listarMigraciones();
+  const resultado = await ejecutarMigraciones({ soloEstado: SOLO_ESTADO });
 
-    if (SOLO_ESTADO) {
-      console.log(`\n  Migraciones (${aplicadas.size} aplicadas de ${migraciones.length}):\n`);
-      for (const m of migraciones) {
-        console.log(`    ${aplicadas.has(m.nombre) ? '✓ aplicada' : '· PENDIENTE'}  ${m.nombre}`);
-      }
-      console.log('');
-      return;
-    }
-
-    const pendientes = migraciones.filter((m) => !aplicadas.has(m.nombre));
-    if (pendientes.length === 0) {
-      console.log(`\n  Nada que aplicar. Las ${migraciones.length} migraciones ya están en la base.\n`);
-      return;
-    }
-
-    console.log(`\n  Aplicando ${pendientes.length} de ${migraciones.length} migraciones:\n`);
-    for (const m of pendientes) {
-      const sql = fs.readFileSync(m.ruta, 'utf8');
-      process.stdout.write(`    ${m.nombre} ... `);
-      try {
-        // Cada archivo trae su propio BEGIN/COMMIT.
-        await client.query(sql);
-        await client.query('INSERT INTO schema_migrations (nombre) VALUES ($1)', [m.nombre]);
-        console.log('ok');
-      } catch (error) {
-        console.log('FALLÓ');
-        console.error(`\n  ${error.message}\n`);
-        process.exitCode = 1;
-        return;
-      }
-    }
-    console.log(`\n  ${pendientes.length} migración(es) aplicada(s).\n`);
-  } finally {
-    client.release();
-    await pool.end();
+  if (resultado.errores.length > 0) {
+    console.error('\n  Migraciones fallidas:\n');
+    for (const error of resultado.errores) console.error(`    ${error}`);
+    console.error('');
+    process.exitCode = 1;
   }
 })();
