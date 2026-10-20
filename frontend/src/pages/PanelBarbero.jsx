@@ -17,7 +17,7 @@ import ListaCitas from '../components/ListaCitas'
 const DIAS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
 
 const inputClase =
-  'w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-2.5 text-cream-50 outline-none focus:border-gold-500'
+  'w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-cream-50 outline-none focus:border-gold-500'
 
 const pestanas = ['Agenda', 'Horario', 'Servicios', 'Perfil']
 
@@ -196,8 +196,8 @@ export default function PanelBarbero() {
   return (
     <div className="min-h-screen bg-ink-950">
       <AppHeader />
-      <div className="mx-auto max-w-4xl px-5 py-10">
-        <h1 className="font-display text-3xl font-bold uppercase tracking-wide">
+      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-5 sm:py-10">
+        <h1 className="font-display text-2xl font-bold uppercase tracking-wide sm:text-3xl">
           Mi agenda
         </h1>
 
@@ -212,7 +212,7 @@ export default function PanelBarbero() {
 
         {!cargando && !error && !sinPerfil && (
           <>
-            <div className="mt-6 flex gap-2">
+            <div className="scroll-x-fino -mx-4 mt-6 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
               {pestanas.map((p) => (
                 <button
                   key={p}
@@ -221,7 +221,7 @@ export default function PanelBarbero() {
                     setPestana(p)
                     setAviso(null)
                   }}
-                  className={`rounded-full px-5 py-2 text-sm font-semibold uppercase tracking-wider transition ${
+                  className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold uppercase tracking-wider transition ${
                     pestana === p
                       ? 'bg-gold-500 text-ink-950'
                       : 'border border-white/15 text-cream-200 hover:border-gold-400'
@@ -254,7 +254,7 @@ export default function PanelBarbero() {
                     {horarios.map((h) => (
                       <div
                         key={h.horarioID}
-                        className="flex items-center justify-between rounded-xl border border-white/10 bg-ink-800 px-4 py-3"
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-ink-800 px-4 py-3"
                       >
                         <span className="capitalize text-cream-50">
                           {h.dia_semana}
@@ -275,7 +275,7 @@ export default function PanelBarbero() {
 
                   <form
                     onSubmit={guardar}
-                    className="h-fit rounded-xl border border-white/10 bg-ink-900 p-5"
+                    className="h-fit rounded-xl border border-white/10 bg-ink-900 p-4 sm:p-5"
                   >
                     <h2 className="font-display text-sm uppercase tracking-widest text-gold-400">
                       Agregar o editar día
@@ -361,7 +361,7 @@ export default function PanelBarbero() {
               {pestana === 'Perfil' && perfil && (
                 <form
                   onSubmit={guardarPerfil}
-                  className="rounded-2xl border border-white/10 bg-ink-900 p-6"
+                  className="rounded-2xl border border-white/10 bg-ink-900 p-4 sm:p-6"
                 >
                   <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
                     {perfil.foto_url ? (

@@ -27,12 +27,12 @@ export default function Servicios() {
 
   return (
     <section id="servicios" className="border-t border-white/10 bg-ink-900">
-      <div className="mx-auto max-w-6xl px-5 py-16 md:py-20">
+      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-5 sm:py-16 md:py-20">
         <div className="mb-10 text-center">
           <p className="text-xs uppercase tracking-[0.3em] text-gold-400">
             Carta de servicios
           </p>
-          <h2 className="mt-3 font-display text-3xl font-bold uppercase tracking-wide md:text-4xl">
+          <h2 className="mt-3 font-display text-2xl font-bold uppercase tracking-wide sm:text-3xl md:text-4xl">
             Lo que hacemos
           </h2>
         </div>
@@ -49,10 +49,10 @@ export default function Servicios() {
           {servicios.map((servicio) => (
             <article
               key={servicio.serviciosID}
-              className="group rounded-2xl border border-white/10 bg-ink-800 p-6 transition hover:border-gold-500/50"
+              className="group rounded-2xl border border-white/10 bg-ink-800 p-5 transition hover:border-gold-500/50 sm:p-6"
             >
-              <div className="mb-4 flex items-start justify-between gap-4">
-                <h3 className="font-display text-xl font-semibold uppercase tracking-wide text-cream-50">
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+                <h3 className="font-display text-lg font-semibold uppercase tracking-wide text-cream-50 sm:text-xl">
                   {servicio.nombre}
                 </h3>
                 <span className="shrink-0 rounded-full bg-gold-500/15 px-3 py-1 text-sm font-semibold text-gold-300">

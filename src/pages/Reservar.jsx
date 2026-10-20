@@ -313,9 +313,9 @@ export default function Reservar() {
     return (
       <div className="min-h-screen bg-ink-950">
         <AppHeader />
-        <div className="mx-auto max-w-lg px-5 py-16 text-center">
-          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-8">
-            <h1 className="font-display text-2xl font-bold uppercase tracking-wide text-emerald-300">
+        <div className="mx-auto max-w-lg px-4 py-12 text-center sm:px-5 sm:py-16">
+          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5 sm:p-8">
+            <h1 className="font-display text-xl font-bold uppercase tracking-wide text-emerald-300 sm:text-2xl">
               {esReprogramar ? '¡Cita reprogramada!' : '¡Cita agendada!'}
             </h1>
             <p className="mt-3 text-cream-200/80">
@@ -402,12 +402,27 @@ export default function Reservar() {
   return (
     <div className="min-h-screen bg-ink-950">
       <AppHeader />
-      <div className="mx-auto max-w-4xl px-5 py-10">
-        <h1 className="font-display text-3xl font-bold uppercase tracking-wide">
+      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-5 sm:py-10">
+        <h1 className="font-display text-2xl font-bold uppercase tracking-wide sm:text-3xl">
           {esReprogramar ? 'Reprogramar cita' : 'Reservar cita'}
         </h1>
 
-        <ol className="mt-6 flex flex-wrap gap-3 text-xs uppercase tracking-wider">
+        {/* Indicador de pasos: barra de progreso en móvil, chips desde sm. */}
+        <div className="mt-6 sm:hidden">
+          <div className="flex items-center gap-3">
+            <p className="shrink-0 text-xs uppercase tracking-wider text-gold-300">
+              {paso + 1}/{pasos.length} · {pasoActual}
+            </p>
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-gold-500 transition-all duration-300"
+                style={{ width: `${((paso + 1) / pasos.length) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <ol className="mt-6 hidden flex-wrap gap-3 text-xs uppercase tracking-wider sm:flex">
           {pasos.map((nombre, i) => (
             <li
               key={nombre}
@@ -439,13 +454,13 @@ export default function Reservar() {
                   {iniciales(barbero.nombre, barbero.apellido)}
                 </span>
               ))}
-            <div>
+            <div className="min-w-0">
               {barbero && (
                 <>
                   <p className="text-xs uppercase tracking-wider text-gold-400">
                     {esReprogramar ? 'Reprogramando tu cita con' : 'Estás reservando con'}
                   </p>
-                  <p className="font-display text-lg uppercase tracking-wide">
+                  <p className="font-display text-base uppercase tracking-wide sm:text-lg">
                     {barbero.nombre} {barbero.apellido}
                   </p>
                 </>
@@ -463,7 +478,7 @@ export default function Reservar() {
         {cargandoBase && <p className="mt-6 text-cream-200/70">Cargando catálogo…</p>}
 
         {!cargandoBase && !errorBase && (
-          <div className="mt-8 rounded-2xl border border-white/10 bg-ink-900 p-6">
+          <div className="mt-8 rounded-2xl border border-white/10 bg-ink-900 p-4 sm:p-6">
             {pasoActual === PASO_SERVICIO && (
               <>
                 <h2 className="mb-4 font-display text-lg uppercase tracking-wide">
@@ -565,7 +580,7 @@ export default function Reservar() {
                       setFecha(e.target.value)
                       setHora('')
                     }}
-                    className="mt-2 block w-full max-w-xs rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-cream-50 outline-none focus:border-gold-500"
+                    className="mt-2 block w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-cream-50 outline-none focus:border-gold-500 sm:max-w-xs"
                   />
                 </label>
 
@@ -586,7 +601,7 @@ export default function Reservar() {
                         No hay cupos que quepan en el horario.
                       </p>
                     ) : (
-                      <div className="mt-3 flex flex-wrap gap-2">
+                      <div className="mt-3 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
                         {slots.map((s) => {
                           const pasado = esHoy && s <= hm(ahora)
                           const ocupado = ocupados.has(s)
@@ -597,7 +612,7 @@ export default function Reservar() {
                               type="button"
                               disabled={deshabilitado}
                               onClick={() => setHora(s)}
-                              className={`rounded-lg border px-4 py-2 text-sm transition ${
+                              className={`rounded-lg border px-3 py-2.5 text-sm transition sm:px-4 sm:py-2 ${
                                 hora === s
                                   ? 'border-gold-500 bg-gold-500 text-ink-950'
                                   : deshabilitado
@@ -620,11 +635,11 @@ export default function Reservar() {
                   </p>
                 )}
 
-                <div className="mt-6 flex items-center gap-4">
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                   <button
                     type="button"
                     onClick={() => setPaso(paso - 1)}
-                    className="text-sm text-cream-200/60 hover:text-gold-400"
+                    className="text-sm text-cream-200/60 hover:text-gold-400 sm:text-right"
                   >
                     {esBarberoFijo ? '← Volver a servicios' : '← Volver a barberos'}
                   </button>
@@ -632,7 +647,7 @@ export default function Reservar() {
                     type="button"
                     disabled={!fecha || !hora || enviando}
                     onClick={() => (esInvitado ? setPaso(paso + 1) : confirmar())}
-                    className="ml-auto rounded-full bg-gold-500 px-7 py-3 text-sm font-semibold uppercase tracking-wider text-ink-950 transition hover:bg-gold-400 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full rounded-full bg-gold-500 px-7 py-3 text-sm font-semibold uppercase tracking-wider text-ink-950 transition hover:bg-gold-400 disabled:cursor-not-allowed disabled:opacity-50 sm:ml-auto sm:w-auto"
                   >
                     {esInvitado ? 'Continuar' : enviando ? 'Agendando…' : 'Confirmar cita'}
                   </button>
@@ -696,7 +711,7 @@ export default function Reservar() {
                   </p>
                 )}
 
-                <div className="mt-6 flex items-center gap-4">
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                   <button
                     type="button"
                     onClick={() => {
@@ -711,7 +726,7 @@ export default function Reservar() {
                     type="button"
                     disabled={enviando}
                     onClick={confirmar}
-                    className="ml-auto rounded-full bg-gold-500 px-7 py-3 text-sm font-semibold uppercase tracking-wider text-ink-950 transition hover:bg-gold-400 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full rounded-full bg-gold-500 px-7 py-3 text-sm font-semibold uppercase tracking-wider text-ink-950 transition hover:bg-gold-400 disabled:cursor-not-allowed disabled:opacity-50 sm:ml-auto sm:w-auto"
                   >
                     {enviando ? 'Agendando…' : 'Confirmar cita'}
                   </button>

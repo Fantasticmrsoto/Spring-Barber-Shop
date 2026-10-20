@@ -83,8 +83,10 @@ export default function Perfil() {
   return (
     <div className="min-h-screen bg-ink-950">
       <AppHeader />
-      <div className="mx-auto max-w-3xl px-5 py-10">
-        <h1 className="font-display text-3xl font-bold uppercase tracking-wide">Mi perfil</h1>
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-5 sm:py-10">
+        <h1 className="font-display text-2xl font-bold uppercase tracking-wide sm:text-3xl">
+          Mi perfil
+        </h1>
         <p className="mt-1 text-sm text-cream-200/60">
           {usuario?.rol === 'cliente'
             ? 'Actualiza tus datos y revisa tu historial de citas.'
@@ -148,7 +150,7 @@ export default function Perfil() {
             {errorDatos && <p className="mt-4 text-sm text-red-300">{errorDatos}</p>}
             {avisoDatos && <p className="mt-4 text-sm text-emerald-300">{avisoDatos}</p>}
 
-            <button type="submit" disabled={guardandoDatos} className={`mt-5 ${botonPrimario}`}>
+            <button type="submit" disabled={guardandoDatos} className={`mt-5 w-full ${botonPrimario} sm:w-auto`}>
               {guardandoDatos ? 'Guardando…' : 'Guardar datos'}
             </button>
           </form>
@@ -198,7 +200,7 @@ export default function Perfil() {
             {errorClave && <p className="mt-4 text-sm text-red-300">{errorClave}</p>}
             {avisoClave && <p className="mt-4 text-sm text-emerald-300">{avisoClave}</p>}
 
-            <button type="submit" disabled={guardandoClave} className={`mt-5 ${botonPrimario}`}>
+            <button type="submit" disabled={guardandoClave} className={`mt-5 w-full ${botonPrimario} sm:w-auto`}>
               {guardandoClave ? 'Guardando…' : 'Cambiar contraseña'}
             </button>
           </form>

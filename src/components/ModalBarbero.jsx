@@ -106,18 +106,18 @@ export default function ModalBarbero({ barbero, onCerrar }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-0 backdrop-blur-sm sm:p-4"
       onClick={onCerrar}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label={`Información de ${barbero.nombre} ${barbero.apellido}`}
-        className="my-8 w-full max-w-2xl rounded-2xl border border-white/10 bg-ink-900 shadow-2xl"
+        className="my-0 w-full max-w-2xl border border-white/10 bg-ink-900 shadow-2xl sm:my-8 sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabecera del barbero */}
-        <div className="relative rounded-t-2xl border-b border-white/10 bg-gradient-to-br from-ink-800 to-ink-900 p-6">
+        <div className="relative rounded-t-2xl border-b border-white/10 bg-gradient-to-br from-ink-800 to-ink-900 p-5 sm:p-6">
           <button
             type="button"
             onClick={onCerrar}
@@ -209,7 +209,7 @@ export default function ModalBarbero({ barbero, onCerrar }) {
         </div>
 
         {/* Reseñas */}
-        <div className="p-6">
+        <div className="p-5 sm:p-6">
           <h3 className="font-display text-lg uppercase tracking-wide">Reseñas</h3>
 
           {/* Formulario para dejar/editar la reseña */}
@@ -221,7 +221,7 @@ export default function ModalBarbero({ barbero, onCerrar }) {
               <p className="text-xs uppercase tracking-wider text-cream-200/70">
                 {miResena ? 'Edita tu reseña' : 'Deja tu reseña'}
               </p>
-              <div className="mt-2 flex items-center gap-3">
+              <div className="mt-2 flex flex-wrap items-center gap-3">
                 <SelectorEstrellas
                   valor={form.calificacion}
                   onCambiar={(calificacion) => setForm((f) => ({ ...f, calificacion }))}

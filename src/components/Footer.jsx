@@ -9,13 +9,13 @@ export default function Footer() {
       id="contacto"
       className="border-t border-white/10 bg-ink-950"
     >
-      <div className="mx-auto grid max-w-6xl gap-8 px-5 py-12 sm:grid-cols-3">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:grid-cols-3 sm:px-5 sm:py-12">
         <div>
           <div className="flex items-center gap-3">
             <img
               src={logo}
               alt="Spring Barber Shop"
-              className="h-20 w-20 rounded-full object-cover shadow-md shadow-black/40"
+              className="h-16 w-16 rounded-full object-cover shadow-md shadow-black/40 sm:h-20 sm:w-20"
             />
           </div>
           <p className="mt-4 text-sm text-cream-200/70">

@@ -78,11 +78,11 @@ export default function PagarCita() {
   return (
     <div className="min-h-screen bg-ink-950">
       <AppHeader />
-      <div className="mx-auto max-w-2xl px-5 py-10">
+      <div className="mx-auto max-w-2xl px-4 py-8 sm:px-5 sm:py-10">
         <Link to="/mis-citas" className="text-sm text-cream-200/60 hover:text-gold-300">
           ← Volver a mis citas
         </Link>
-        <h1 className="mt-3 font-display text-3xl font-bold uppercase tracking-wide">
+        <h1 className="mt-3 font-display text-2xl font-bold uppercase tracking-wide sm:text-3xl">
           Pagar cita
         </h1>
 
@@ -186,11 +186,11 @@ export default function PagarCita() {
 
                 {aviso && <p className="mt-4 text-sm text-amber-200">{aviso}</p>}
 
-                <div className="mt-5 flex items-center gap-3">
-                  <button type="submit" disabled={enviando} className={botonPrimario}>
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <button type="submit" disabled={enviando} className={`w-full ${botonPrimario} sm:w-auto`}>
                     {enviando ? 'Enviando…' : 'Enviar comprobante'}
                   </button>
-                  <Link to="/mis-citas" className={botonSecundario}>
+                  <Link to="/mis-citas" className={`${botonSecundario} text-center`}>
                     Cancelar
                   </Link>
                 </div>

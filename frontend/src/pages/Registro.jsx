@@ -80,19 +80,20 @@ export default function Registro() {
   ]
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-ink-950 px-5 py-12">
-      <Link to="/" className="mb-8 flex flex-col items-center">
-        <img
-          src={logo}
-          alt="Spring Barber Shop"
-          className="h-32 w-32 rounded-full object-cover shadow-lg shadow-black/50"
-        />
-      </Link>
+    <div className="flex min-h-screen flex-col items-center bg-ink-950 px-4 py-8 sm:px-5 sm:py-12">
+      <div className="my-auto flex w-full flex-col items-center">
+        <Link to="/" className="mb-6 flex flex-col items-center sm:mb-8">
+          <img
+            src={logo}
+            alt="Spring Barber Shop"
+            className="h-20 w-20 rounded-full object-cover shadow-lg shadow-black/50 sm:h-28 sm:w-28"
+          />
+        </Link>
 
-      <form
-        onSubmit={enviar}
-        className="w-full max-w-md rounded-2xl border border-white/10 bg-ink-900 p-7"
-      >
+        <form
+          onSubmit={enviar}
+          className="w-full max-w-md rounded-2xl border border-white/10 bg-ink-900 p-5 sm:p-7"
+        >
         <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
           Crear cuenta
         </h1>
@@ -166,6 +167,7 @@ export default function Registro() {
           </Link>
         </p>
       </form>
+      </div>
     </div>
   )
 }

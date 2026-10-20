@@ -35,12 +35,12 @@ export default function Barberos() {
 
   return (
     <section id="barberos" className="border-t border-white/10">
-      <div className="mx-auto max-w-6xl px-5 py-16 md:py-20">
+      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-5 sm:py-16 md:py-20">
         <div className="mb-10 text-center">
           <p className="text-xs uppercase tracking-[0.3em] text-gold-400">
             El equipo
           </p>
-          <h2 className="mt-3 font-display text-3xl font-bold uppercase tracking-wide md:text-4xl">
+          <h2 className="mt-3 font-display text-2xl font-bold uppercase tracking-wide sm:text-3xl md:text-4xl">
             Nuestros barberos
           </h2>
         </div>
@@ -65,7 +65,7 @@ export default function Barberos() {
               <article
                 key={barbero.barberoID}
                 onClick={() => setSeleccionado(barbero)}
-                className="flex cursor-pointer flex-col items-center rounded-2xl border border-white/10 bg-ink-800 p-6 text-center transition hover:border-gold-500/50 focus-within:border-gold-500/50"
+                className="flex cursor-pointer flex-col items-center rounded-2xl border border-white/10 bg-ink-800 p-5 text-center transition hover:border-gold-500/50 focus-within:border-gold-500/50 sm:p-6"
               >
                 {barbero.foto_url ? (
                   <img

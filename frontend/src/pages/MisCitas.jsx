@@ -65,9 +65,9 @@ export default function MisCitas() {
   return (
     <div className="min-h-screen bg-ink-950">
       <AppHeader />
-      <div className="mx-auto max-w-3xl px-5 py-10">
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <h1 className="font-display text-3xl font-bold uppercase tracking-wide">
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-5 sm:py-10">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="font-display text-2xl font-bold uppercase tracking-wide sm:text-3xl">
             Mis citas
           </h1>
           <Link
@@ -86,9 +86,9 @@ export default function MisCitas() {
             <p className="text-xs uppercase tracking-wider text-gold-400">
               Tu próxima cita
             </p>
-            <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-2">
-              <div className="min-w-[10rem]">
-                <p className="font-display text-xl uppercase tracking-wide">
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2">
+              <div className="min-w-0 sm:min-w-[10rem]">
+                <p className="font-display text-lg uppercase tracking-wide sm:text-xl">
                   {fechaHora(proxima.fecha_inicio)}
                 </p>
                 <p className="text-sm text-cream-200/70">
@@ -106,11 +106,11 @@ export default function MisCitas() {
                   </>
                 )}
               </p>
-              <span className="rounded-full bg-gold-500/15 px-3 py-1 text-xs uppercase tracking-wider text-gold-300">
+              <span className="w-fit rounded-full bg-gold-500/15 px-3 py-1 text-xs uppercase tracking-wider text-gold-300">
                 {ESTADO_LABEL[proxima.estado] ?? proxima.estado}
               </span>
               {modo === 'cliente' && (
-                <div className="ml-auto flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 sm:ml-auto">
                   <AccionesClienteCita cita={proxima} />
                 </div>
               )}

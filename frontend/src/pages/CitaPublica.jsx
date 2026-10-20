@@ -49,8 +49,8 @@ export default function CitaPublica() {
   return (
     <div className="min-h-screen bg-ink-950">
       <AppHeader />
-      <div className="mx-auto max-w-lg px-5 py-14">
-        <h1 className="font-display text-3xl font-bold uppercase tracking-wide">
+      <div className="mx-auto max-w-lg px-4 py-10 sm:px-5 sm:py-14">
+        <h1 className="font-display text-2xl font-bold uppercase tracking-wide sm:text-3xl">
           Mi cita
         </h1>
 
@@ -62,8 +62,8 @@ export default function CitaPublica() {
         )}
 
         {cita && (
-          <div className="mt-6 rounded-2xl border border-white/10 bg-ink-900 p-6">
-            <div className="flex items-center justify-between gap-3">
+          <div className="mt-6 rounded-2xl border border-white/10 bg-ink-900 p-4 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="font-display text-lg uppercase tracking-wide text-cream-50">
                 {cita.servicio_nombre}
               </span>
@@ -109,13 +109,13 @@ export default function CitaPublica() {
               </p>
             )}
 
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               {CANCELABLES.includes(cita.estado) && (
                 <button
                   type="button"
                   disabled={cancelando}
                   onClick={cancelar}
-                  className="rounded-full border border-red-400/40 px-6 py-2.5 text-sm font-semibold uppercase tracking-wider text-red-300 transition hover:bg-red-500/15 disabled:opacity-50"
+                  className="w-full rounded-full border border-red-400/40 px-6 py-3 text-sm font-semibold uppercase tracking-wider text-red-300 transition hover:bg-red-500/15 disabled:opacity-50 sm:w-auto"
                 >
                   {cancelando ? 'Cancelando…' : 'Cancelar cita'}
                 </button>
@@ -126,7 +126,7 @@ export default function CitaPublica() {
                 )}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-full border border-emerald-400/40 px-6 py-2.5 text-sm font-semibold uppercase tracking-wider text-emerald-300 transition hover:bg-emerald-500/15"
+                className="w-full rounded-full border border-emerald-400/40 px-6 py-3 text-center text-sm font-semibold uppercase tracking-wider text-emerald-300 transition hover:bg-emerald-500/15 sm:w-auto"
               >
                 Escribir por WhatsApp
               </a>

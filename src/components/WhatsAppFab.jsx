@@ -10,17 +10,17 @@ export default function WhatsAppFab() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Escríbenos por WhatsApp"
-      className="group fixed bottom-6 right-6 z-50 flex items-center gap-3"
+      className="group fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-50 flex items-center gap-3 sm:right-6"
     >
       <span className="hidden rounded-full bg-ink-800 px-4 py-2 text-sm font-medium text-cream-50 shadow-lg ring-1 ring-white/10 group-hover:block">
         ¿Reservamos? Escríbenos
       </span>
-      <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] shadow-lg shadow-black/40 transition hover:scale-105">
+      <span className="relative flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] shadow-lg shadow-black/40 transition hover:scale-105 sm:h-14 sm:w-14">
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#25D366] opacity-40" />
         <svg
           viewBox="0 0 24 24"
           fill="currentColor"
-          className="relative h-7 w-7 text-white"
+          className="relative h-6 w-6 text-white sm:h-7 sm:w-7"
           aria-hidden="true"
         >
           <path d={WHATSAPP_ICON} />

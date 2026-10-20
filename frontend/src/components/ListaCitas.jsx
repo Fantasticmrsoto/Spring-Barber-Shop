@@ -40,7 +40,7 @@ export function AccionesClienteCita({ cita }) {
       {puedePagar && (
         <Link
           to={`/pagar/${cita.citaID}`}
-          className="rounded-full bg-gold-500 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-ink-950 transition hover:bg-gold-400"
+          className="rounded-full bg-gold-500 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-ink-950 transition hover:bg-gold-400 sm:py-1.5"
         >
           Pagar
         </Link>
@@ -48,14 +48,14 @@ export function AccionesClienteCita({ cita }) {
       {puedeReprogramar && (
         <Link
           to={`/reservar?reprogramar=${cita.citaID}&barbero=${cita.barberoID}&servicio=${cita.servicioID}`}
-          className="rounded-full border border-white/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-cream-200/80 transition hover:border-gold-400 hover:text-gold-300"
+          className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-cream-200/80 transition hover:border-gold-400 hover:text-gold-300 sm:py-1.5"
         >
           Reprogramar
         </Link>
       )}
       <Link
         to={`/reservar?barbero=${cita.barberoID}&servicio=${cita.servicioID}`}
-        className="rounded-full border border-gold-500/40 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-gold-300 transition hover:bg-gold-500 hover:text-ink-950"
+        className="rounded-full border border-gold-500/40 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gold-300 transition hover:bg-gold-500 hover:text-ink-950 sm:py-1.5"
       >
         Repetir
       </Link>
@@ -103,14 +103,14 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-2">
         <div className="flex flex-wrap gap-1.5">
           {FILTROS.map((f) => (
             <button
               key={f}
               type="button"
               onClick={() => setFiltro(f)}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition ${
+              className={`rounded-full px-3.5 py-2 text-xs font-semibold uppercase tracking-wider transition sm:py-1.5 ${
                 filtro === f
                   ? 'bg-gold-500 text-ink-950'
                   : 'border border-white/15 text-cream-200 hover:border-gold-400'
@@ -120,14 +120,14 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
             </button>
           ))}
         </div>
-        <div className="ml-auto flex flex-wrap items-end gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:ml-auto sm:flex sm:w-auto sm:flex-wrap sm:items-end sm:gap-2">
           <label className="text-[0.65rem] uppercase tracking-wider text-cream-200/60">
             Desde
             <input
               type="date"
               value={desde}
               onChange={(e) => setDesde(e.target.value)}
-              className="ml-2 rounded-lg border border-white/10 bg-ink-800 px-2.5 py-1.5 text-xs text-cream-50 outline-none focus:border-gold-500"
+              className="mt-1 block w-full rounded-lg border border-white/10 bg-ink-800 px-2.5 py-2 text-xs text-cream-50 outline-none focus:border-gold-500 sm:mt-0 sm:ml-2 sm:w-auto sm:py-1.5"
             />
           </label>
           <label className="text-[0.65rem] uppercase tracking-wider text-cream-200/60">
@@ -136,7 +136,7 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
               type="date"
               value={hasta}
               onChange={(e) => setHasta(e.target.value)}
-              className="ml-2 rounded-lg border border-white/10 bg-ink-800 px-2.5 py-1.5 text-xs text-cream-50 outline-none focus:border-gold-500"
+              className="mt-1 block w-full rounded-lg border border-white/10 bg-ink-800 px-2.5 py-2 text-xs text-cream-50 outline-none focus:border-gold-500 sm:mt-0 sm:ml-2 sm:w-auto sm:py-1.5"
             />
           </label>
           {hayFiltros && (
@@ -147,7 +147,7 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
                 setDesde('')
                 setHasta('')
               }}
-              className="rounded-full border border-white/15 px-3 py-1.5 text-xs uppercase tracking-wider text-cream-200/70 hover:border-gold-400 hover:text-gold-300"
+              className="col-span-2 justify-self-start rounded-full border border-white/15 px-3 py-1.5 text-xs uppercase tracking-wider text-cream-200/70 hover:border-gold-400 hover:text-gold-300 sm:col-span-1"
             >
               Limpiar
             </button>
@@ -188,9 +188,9 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
             return (
               <article
                 key={cita.citaID}
-                className="flex flex-wrap items-center gap-4 rounded-xl border border-white/10 bg-ink-800 p-4"
+                className="flex flex-col gap-3 rounded-xl border border-white/10 bg-ink-800 p-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4"
               >
-                <div className="min-w-[9rem]">
+                <div className="min-w-0 sm:min-w-[9rem]">
                   <p className="text-sm font-semibold text-cream-50">
                     {fechaHora(cita.fecha_inicio)}
                   </p>
@@ -199,10 +199,10 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
                   </p>
                 </div>
 
-                <div className="min-w-[10rem] text-sm text-cream-200/80">
+                <div className="min-w-0 text-sm text-cream-200/80 sm:min-w-[10rem]">
                   {modo === 'equipo' ? (
                     <>
-                      <span className="flex items-center gap-2">
+                      <span className="flex flex-wrap items-center gap-2">
                         <span className="text-cream-200/50">Cliente:</span>
                         <span>
                           {cita.cliente_nombre} {cita.cliente_apellido}
@@ -214,7 +214,7 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
                         )}
                       </span>
                       {cita.cliente_telefono && (
-                        <span className="text-xs text-cream-200/50">
+                        <span className="block text-xs text-cream-200/50">
                           {cita.cliente_telefono}
                         </span>
                       )}
@@ -227,23 +227,25 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
                   )}
                 </div>
 
-                <span
-                  className={`rounded-full px-3 py-1 text-xs uppercase tracking-wider ${estado.clase}`}
-                >
-                  {estado.label}
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs uppercase tracking-wider ${estado.clase}`}
+                  >
+                    {estado.label}
+                  </span>
 
-                <EstadoPagoBadge estado={cita.pago_estado} />
+                  <EstadoPagoBadge estado={cita.pago_estado} />
+                </div>
 
                 {(acciones.length > 0 || modo === 'cliente') && (
-                  <div className="ml-auto flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 sm:ml-auto">
                     {acciones.map((estadoDestino) => (
                       <button
                         key={estadoDestino}
                         type="button"
                         disabled={ocupada === cita.citaID}
                         onClick={() => cambiar(cita, estadoDestino)}
-                        className={`rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wider transition disabled:opacity-50 ${
+                        className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wider transition disabled:opacity-50 sm:py-1.5 ${
                           estadoDestino === 'cancelada'
                             ? 'border border-red-400/40 text-red-300 hover:bg-red-500/15'
                             : 'bg-gold-500 text-ink-950 hover:bg-gold-400'
