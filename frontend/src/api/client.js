@@ -1,12 +1,23 @@
 import axios from 'axios'
 
-// El backend expone todo bajo http://<host>:3000 (ver documentacion/API.md).
-// Por defecto el host se deduce del que se sirvio la web, de modo que la app
-// funciona igual en el PC (localhost) que en el movil (IP de la red local)
-// sin editar nada cuando la IP del equipo cambia. Si hace falta apuntar a
-// otro backend, se define VITE_API_URL en un archivo .env.
-const API_POR_DEFECTO =
-  typeof window !== 'undefined'
+// URL base de la API.
+//
+// Se resuelve en este orden:
+//
+//  1. `VITE_API_URL` — si está definida, manda ella. Es lo que se usa cuando la
+//     web y la API están en dominios distintos (web en Vercel, API en Render).
+//
+//  2. `/api` — en la build de producción la API se sirve bajo el mismo dominio
+//     que la web (el proxy inverso de nginx, de Vercel o de Cloudflare
+//     reenvía `/api/*` al backend). Así no hay CORS ni cookies entre sitios.
+//
+//  3. `http://<misma-IP>:3000` — en desarrollo la API va en otro puerto, así
+//     que se deduce del host con el que se sirvió la web: la app funciona
+//     igual en el PC (localhost) y en el móvil (IP de la red local) sin editar
+//     nada cuando la IP del equipo cambia.
+const API_POR_DEFECTO = import.meta.env.PROD
+  ? '/api'
+  : typeof window !== 'undefined'
     ? `${window.location.protocol}//${window.location.hostname}:3000`
     : 'http://localhost:3000'
 
