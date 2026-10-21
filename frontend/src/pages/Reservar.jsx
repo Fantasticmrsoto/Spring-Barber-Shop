@@ -65,11 +65,16 @@ function generarSlots(inicio, fin, duracionMinutos) {
 }
 
 export default function Reservar() {
-  const { usuario } = useAuth()
+  const { usuario, cargando: cargandoSesion } = useAuth()
   const [searchParams] = useSearchParams()
 
   // Sin sesión se reserva como invitado: se pide nombre y teléfono al final.
-  const esInvitado = !usuario
+  //
+  // La sesión puede tardar en resolverse (al abrir la web se rehidrata con
+  // GET /api/auth/me). Mientras tanto `usuario` es null, así que un usuario
+  // con la sesión abierta sería tomado por invitado y su cita se guardaría
+  // sin cuenta. Por eso el formulario espera a que la sesión esté resuelta.
+  const esInvitado = !cargandoSesion && !usuario
 
   // Parámetros de entrada:
   //  - ?barbero=ID  -> barbero fijo: se omite el paso de elegir barbero.
@@ -240,16 +245,34 @@ export default function Reservar() {
     return horarios.find((h) => h.dia_semana === dia) || null
   }, [fecha, horarios])
 
-  const ocupados = useMemo(() => {
-    if (!fecha) return new Set()
-    const set = new Set()
+  /*
+   * Intervalos ocupados del día seleccionado, en minutos desde medianoche.
+   *
+   * Se guarda el intervalo completo y no solo la hora de inicio: una cita de
+   * 10:15 a 10:45 bloquea también las 10:00 de un servicio de 60 minutos,
+   * aunque su hora de inicio no coincida con ningún hueco. Comparando solo la
+   * hora exacta, la web ofrecía huecos que el servidor iba a rechazar con un
+   * "se cruza con otra cita".
+   */
+  const ocupadosDelDia = useMemo(() => {
+    if (!fecha) return []
+    const lista = []
     for (const c of citasBarbero) {
       if (c.estado === 'cancelada') continue
-      const d = new Date(c.fecha_inicio)
-      if (ymd(d) === fecha) set.add(hm(d))
+      const inicio = new Date(c.fecha_inicio)
+      if (Number.isNaN(inicio.getTime()) || ymd(inicio) !== fecha) continue
+      const fin = c.fecha_fin ? new Date(c.fecha_fin) : new Date(inicio.getTime() + 30 * 60000)
+      lista.push({
+        inicio: inicio.getHours() * 60 + inicio.getMinutes(),
+        fin: fin.getHours() * 60 + fin.getMinutes(),
+      })
     }
-    return set
+    return lista
   }, [fecha, citasBarbero])
+
+  // ¿El hueco [inicio, fin) se cruza con alguna cita ya agendada?
+  const seCruza = (inicioMin, finMin) =>
+    ocupadosDelDia.some((o) => inicioMin < o.fin && finMin > o.inicio)
 
   const slots = useMemo(() => {
     if (!horarioDelDia || !servicio) return []
@@ -532,9 +555,10 @@ export default function Reservar() {
         )}
 
         {errorBase && <p className="mt-6 text-red-400">{errorBase}</p>}
-        {cargandoBase && <p className="mt-6 text-cream-200/70">Cargando catálogo…</p>}
+        {cargandoSesion && <p className="mt-6 text-cream-200/70">Cargando…</p>}
+        {cargandoBase && !cargandoSesion && <p className="mt-6 text-cream-200/70">Cargando catálogo…</p>}
 
-        {!cargandoBase && !errorBase && (
+        {!cargandoSesion && !cargandoBase && !errorBase && (
           <div className="mt-8 rounded-2xl border border-white/10 bg-ink-900 p-4 sm:p-6">
             {pasoActual === PASO_SERVICIO && (
               <>
@@ -686,7 +710,9 @@ export default function Reservar() {
                       <div className="mt-3 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
                         {slots.map((s) => {
                           const pasado = esHoy && s <= hm(ahora)
-                          const ocupado = ocupados.has(s)
+                          const duracionMin = Number(servicio.duracion_minutos) || 30
+                          const inicioMin = paraMinutos(s)
+                          const ocupado = seCruza(inicioMin, inicioMin + duracionMin)
                           const deshabilitado = pasado || ocupado
                           return (
                             <button

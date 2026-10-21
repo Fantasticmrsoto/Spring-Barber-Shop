@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getCitaPublica, cancelarCitaPublica } from '../api/citas'
 import { mensajeDeError } from '../api/client'
-import { fechaHora, precio, duracion } from '../utils/formato'
+import { fechaHora, precio, duracion, nombreCliente } from '../utils/formato'
 import { ESTADOS_CITA } from '../utils/pago'
 import { enlaceWhatsApp } from '../config'
 import AppHeader from '../components/AppHeader'
@@ -93,9 +93,7 @@ export default function CitaPublica() {
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-cream-200/60">A nombre de</dt>
-                <dd className="text-right text-cream-50">
-                  {cita.cliente_nombre} {cita.cliente_apellido}
-                </dd>
+                <dd className="text-right text-cream-50">{nombreCliente(cita)}</dd>
               </div>
             </dl>
 

@@ -73,6 +73,21 @@ export function fechaHora(valor) {
   return d.toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
+/*
+ * Nombre de quien tiene la cita.
+ *
+ * Una cita puede ser de un cliente registrado (con cuenta) o de un invitado
+ * (alguien que reservó sin cuenta). En el caso del invitado no hay
+ * `cliente_nombre`: el nombre está en `contacto_nombre`. Sin esta ayuda, los
+ * sitios que muestran el nombre del cliente se veían en blanco justo en las
+ * citas de invitado, que son las que se ven desde el panel.
+ */
+export function nombreCliente(cita) {
+  if (!cita) return ''
+  if (cita.es_invitado) return cita.contacto_nombre || ''
+  return `${cita.cliente_nombre ?? ''} ${cita.cliente_apellido ?? ''}`.trim()
+}
+
 // El backend guarda la foto como ruta relativa ("/uploads/foto.jpg"). Se
 // convierte a URL absoluta; una URL ya completa o un data: se dejan igual.
 export function urlImagen(ruta) {

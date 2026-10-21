@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { cambiarEstadoCita } from '../api/citas'
 import { mensajeDeError } from '../api/client'
-import { fechaHora, precio } from '../utils/formato'
+import { fechaHora, precio, nombreCliente } from '../utils/formato'
 import { ESTADOS_CITA } from '../utils/pago'
 import EstadoPagoBadge from './EstadoPagoBadge'
 
@@ -200,9 +200,7 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
                     <>
                       <span className="flex flex-wrap items-center gap-2">
                         <span className="text-cream-200/50">Cliente:</span>
-                        <span>
-                          {cita.cliente_nombre} {cita.cliente_apellido}
-                        </span>
+                        <span>{nombreCliente(cita)}</span>
                         {cita.es_invitado && (
                           <span className="rounded-full bg-indigo-500/15 px-2 py-0.5 text-[0.6rem] uppercase tracking-wider text-indigo-300">
                             Invitado

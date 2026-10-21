@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { getCitas } from '../api/citas'
 import { mensajeDeError } from '../api/client'
-import { fechaHora, precio } from '../utils/formato'
+import { fechaHora, precio, nombreCliente } from '../utils/formato'
 import { ESTADOS_CITA } from '../utils/pago'
 import AppHeader from '../components/AppHeader'
 import ListaCitas, { AccionesClienteCita } from '../components/ListaCitas'
@@ -96,7 +96,7 @@ export default function MisCitas() {
               <p className="text-sm text-cream-200/80">
                 {modo === 'equipo' ? (
                   <>
-                    Cliente: {proxima.cliente_nombre} {proxima.cliente_apellido}
+                    Cliente: {nombreCliente(proxima)}
                   </>
                 ) : (
                   <>
