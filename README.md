@@ -42,6 +42,37 @@ npm run dev
 | `npm run build` | Genera la build de producción de la web |
 | `npm run lint` | Ejecuta Oxlint sobre el frontend |
 
+## Imágenes y vídeo
+
+Las imágenes y el vídeo de la portada ya están optimizados y viven en
+`frontend/src/assets/`:
+
+| Fichero | Peso | Para qué sirve |
+|---|---|---|
+| `video/inicio.mp4` | 5,2 MB | Vídeo de la portada (H.264, sin audio, con el índice al principio para que empiece a reproducirse sin esperar) |
+| `video/poster.avif` / `.webp` | 16 KB / 27 KB | Fotograma del vídeo, lo que se ve mientras carga |
+| `barberos/barb*.webp` | 1-8 KB | Fotos de referencia de los barberos |
+
+Para que la web no se ponga más lenta:
+
+- El vídeo **no** se descarga con la página: primero se pinta el cartel y el
+  vídeo solo se pide cuando el bloque está a la vista y el navegador ya está
+  libre. Si el visitante pide menos movimiento (`prefers-reduced-motion`), el
+  vídeo no se descarga nunca.
+- Las fotos van en WebP y en dos tamaños (96 y 192 px); con `srcset`, el
+  navegador descarga solo el que le hace falta.
+- `vite.config.js` lleva `assetsInlineLimit: 0`: las imágenes se emiten como
+  archivos con nombre hash en vez de ir en base64 dentro del JavaScript. Así
+  se cachean por separado y el paquete principal no crece.
+
+Un detalle importante: los archivos de `assets/` se sirven con
+`Cache-Control: immutable` (un año). Como el nombre lleva un hash, al cambiar
+el contenido cambia la URL y el navegador pide la versión nueva; por eso hay
+que **subir el fichero nuevo**, no solo sustituir el contenido.
+
+Una foto subida desde el panel de administración manda siempre sobre la foto
+de referencia.
+
 ## Abrir la web desde el móvil
 
 La web se sirve en `0.0.0.0:5173`, así que es accesible desde cualquier
