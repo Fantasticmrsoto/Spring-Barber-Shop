@@ -5,6 +5,14 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    // Las imágenes (las fotos de los barberos, el cartel del vídeo) se
+    // emiten como archivos aparte, con nombre hash, en vez de meterse dentro
+    // del JavaScript en base64. Así el navegador las cachea por separado y
+    // el paquete principal no crece; además, si una imagen cambia, cambia
+    // su nombre y no se sirve la versión vieja desde la caché.
+    assetsInlineLimit: 0,
+  },
   server: {
     // `host: true` deja el servidor escuchando en 0.0.0.0, necesario para
     // abrir la web desde el móvil usando la IP de la red local.

@@ -15,6 +15,14 @@ dist-ssr
 # Variables de entorno (contienen IPs locales y credenciales)
 .env
 
+# Archivos subidos por los usuarios (fotos de barbero, comprobantes de pago).
+# No van al repositorio: son de cada instalación.
+backend/uploads/
+
+# El .rar con las imágenes originales: es el paquete de partida, no el
+# resultado. En el repositorio están las imágenes ya optimizadas.
+*.rar
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
