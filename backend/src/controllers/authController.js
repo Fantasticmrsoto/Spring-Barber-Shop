@@ -113,7 +113,79 @@ const obtenerPerfil = async (req, res) => {
   }
 };
 
+/*
+ * Recuperación de contraseña sin correo saliente.
+ *
+ * La peluquería no manda correos, así que la identidad se confirma con el par
+ * correo + teléfono de la cuenta: los dos datos que el usuario ya conoce y que
+ * están guardados en su ficha.
+ *
+ * Dos cuidados:
+ *
+ *   - La respuesta **no dice** si el correo existe. "Correo inexistente" y
+ *     "teléfono incorrecto" devuelven el mismo 404 con el mismo texto, para no
+ *     convertir esta ruta en un wayback de qué correos están registrados.
+ *   - La clave nueva siempre se guarda como hash bcrypt. Las cuentas viejas que
+ *     aún tienen la clave en texto plano quedan migradas al recuperarla.
+ */
+const recuperarClave = async (req, res) => {
+  const { correo, telefono, claveNueva } = req.body || {};
+
+  if (
+    typeof correo !== 'string' || !correo.trim() ||
+    typeof telefono !== 'string' || !telefono.trim() ||
+    typeof claveNueva !== 'string' || !claveNueva
+  ) {
+    return res.status(400).json({
+      ok: false,
+      message: 'El correo, el teléfono y la nueva contraseña son obligatorios'
+    });
+  }
+
+  if (claveNueva.length < 6) {
+    return res.status(400).json({
+      ok: false,
+      message: 'La nueva contraseña debe tener al menos 6 caracteres'
+    });
+  }
+
+  // El teléfono se compara solo con sus dígitos: la ficha puede guardarlo como
+  // "0412-435.08.53" y el usuario lo teclea como "04124350853".
+  const soloDigitos = (valor) => String(valor).replace(/\D/g, '');
+
+  try {
+    const resultado = await db.query(
+      'SELECT "usuarioID", telefono FROM usuario WHERE correo = $1',
+      [correo.trim()]
+    );
+
+    const usuario = resultado.rows[0];
+
+    if (!usuario || soloDigitos(usuario.telefono) !== soloDigitos(telefono)) {
+      // Mismo mensaje para los dos casos: no se revela qué correos existen.
+      return res.status(404).json({
+        ok: false,
+        message: 'El correo o el teléfono no coinciden con ninguna cuenta'
+      });
+    }
+
+    const hash = await bcrypt.hash(claveNueva, 10);
+    await db.query(
+      'UPDATE usuario SET clave = $1 WHERE "usuarioID" = $2',
+      [hash, usuario.usuarioID]
+    );
+
+    res.json({
+      ok: true,
+      message: 'Contraseña actualizada exitosamente'
+    });
+  } catch (error) {
+    errorInterno(res, error, 'Recuperar Clave');
+  }
+};
+
 module.exports = {
   login,
-  obtenerPerfil
+  obtenerPerfil,
+  recuperarClave
 };

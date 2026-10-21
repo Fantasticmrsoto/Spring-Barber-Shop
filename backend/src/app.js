@@ -14,6 +14,7 @@ const horarioRoutes = require('./routes/horarioRoutes');
 const barberoServicioRoutes = require('./routes/barberoServicioRoutes');
 const transaccionRoutes = require('./routes/transaccionRoutes');
 const feriadoRoutes = require('./routes/feriadoRoutes');
+const estadisticasRoutes = require('./routes/estadisticasRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -70,6 +71,22 @@ app.use('/api/horarios', horarioRoutes);
 app.use('/api/barbero-servicios', barberoServicioRoutes);
 app.use('/api/transacciones', transaccionRoutes);
 app.use('/api/feriados', feriadoRoutes);
+app.use('/api/estadisticas', estadisticasRoutes);
+
+/*
+ * Archivos subidos (comprobantes de pago y fotos de los barberos).
+ *
+ * multer los deja en `backend/uploads` y lo que se guarda en la base de datos
+ * es la ruta "/uploads/nombre-del-archivo". Sin esto, la foto de un barbero y
+ * el comprobante de un pago darían error al abrirse.
+ *
+ * Se montan en dos sitios porque la web y la API pueden vivir en dominios
+ * distintos: en desarrollo la web llama a "http://<ip>:3000" y en producción
+ * llama a "/api" en el mismo dominio. Con los dos montajes, la URL que se
+ * guarda en la base funciona en los dos casos.
+ */
+app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
+app.use('/api/uploads', express.static(path.resolve(__dirname, '../uploads')));
 
 /*
  * Web compilada (opcional).

@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const { errorInterno } = require('../utils/respuestaError');
 const { idValido } = require('../utils/validacion');
+const { esAdministradorDeBarbero, forbiddenNoEsSuBarbero } = require('../utils/permisos');
 
 // 1. Obtener los servicios que ofrece un barbero específico
 const obtenerServiciosPorBarbero = async (req, res) => {
@@ -50,6 +51,12 @@ const asignarServicioABarbero = async (req, res) => {
       ok: false,
       message: 'barberoID y servicioID deben ser números enteros válidos'
     });
+  }
+
+  // Un barbero solo puede cambiar los servicios de su propia ficha (la ruta
+  // deja pasar al administrador y al barbero).
+  if (!(await esAdministradorDeBarbero(barberoId, req.usuario))) {
+    return forbiddenNoEsSuBarbero(res, 'Solo puedes modificar los servicios de tu propia ficha');
   }
 
   try {
@@ -110,6 +117,11 @@ const eliminarServicioDeBarbero = async (req, res) => {
       ok: false,
       message: 'Los IDs de barbero y servicio deben ser números enteros válidos'
     });
+  }
+
+  // Igual que al asignar: un barbero solo toca los servicios de su ficha.
+  if (!(await esAdministradorDeBarbero(barberoId, req.usuario))) {
+    return forbiddenNoEsSuBarbero(res, 'Solo puedes modificar los servicios de tu propia ficha');
   }
 
   try {

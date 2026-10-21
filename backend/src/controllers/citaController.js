@@ -1,6 +1,7 @@
+const crypto = require('crypto');
 const db = require('../config/db');
 const { errorInterno } = require('../utils/respuestaError');
-const { nombreDia, horaAMinutos, fechaYmd, parsearFechaHora } = require('../utils/validacion');
+const { nombreDia, horaAMinutos, fechaYmd, parsearFechaHora, idValido } = require('../utils/validacion');
 const { esDiaDeDescanso, mensajeDiaDeDescanso } = require('../config/calendario');
 
 // Estados permitidos (deben coincidir con el CHECK de la migración 001)
@@ -13,33 +14,99 @@ const errorHttp = (status, message) => {
   return error;
 };
 
-// 1. Obtener todas las citas
+/*
+ * Datos de una cita tal y como los devuelve la API.
+ *
+ * La usan el listado y las respuestas de las acciones que la modifican, para
+ * que todas devuelvan los mismos campos.
+ */
+const SELECT_CITA = `
+  SELECT
+    c."citaID",
+    c."clienteID",
+    c."barberoID",
+    c."servicioID",
+    c.fecha_inicio,
+    c.fecha_fin,
+    c.estado,
+    c.es_invitado,
+    c.contacto_nombre,
+    c.contacto_telefono,
+    c.codigo,
+    u.nombre   AS cliente_nombre,
+    u.apellido AS cliente_apellido,
+    COALESCE(c.contacto_telefono, u.telefono) AS cliente_telefono,
+    ub.nombre  AS barbero_nombre,
+    ub.apellido AS barbero_apellido,
+    s.nombre   AS servicio_nombre,
+    s.precio,
+    s.duracion_minutos,
+    (
+      SELECT t.estado
+      FROM transacciones t
+      WHERE t."citaID" = c."citaID"
+      ORDER BY t."transaccionID" DESC
+      LIMIT 1
+    ) AS pago_estado
+  FROM cita c
+  LEFT JOIN usuario u   ON c."clienteID"  = u."usuarioID"
+  JOIN barbero b   ON c."barberoID"  = b."barberoID"
+  JOIN usuario ub  ON b."usuarioID"  = ub."usuarioID"
+  JOIN servicios s ON c."servicioID" = s."serviciosID"
+`;
+
+/*
+ * Código de gestión de una cita de invitado.
+ *
+ * Es lo único que el cliente puede presentar para ver o cancelar su cita sin
+ * tener cuenta, así que no puede ser corto ni predecible: son 12 bytes
+ * aleatorios en hexadecimal (24 caracteres).
+ */
+const generarCodigo = () => crypto.randomBytes(12).toString('hex');
+
+/*
+ * Valida el teléfono de un invitado: al menos 7 dígitos, contando solo los
+ * que son números (un teléfono puede venir con espacios, guiones o el prefijo
+ * del país).
+ */
+const telefonoValido = (telefono) => String(telefono || '').replace(/\D/g, '').length >= 7;
+
+// 1. Obtener las citas
+//
+// La lista se acota según el rol de quien pregunta, porque cada rol ve una
+// agenda distinta:
+//
+//   - **administrador**: todas las citas de la peluquería.
+//   - **barbero**: solo las citas de su propia agenda.
+//   - **cliente**: solo sus propias citas.
+//
+// Sin este filtro, un cliente autenticado recibía la agenda completa con el
+// nombre y el teléfono de todos los demás clientes. La web ("Mis citas")
+// asume que el backend ya hace este recorte: si no, se ve la cita ajena.
 const obtenerCitas = async (req, res) => {
   try {
-    const query = `
-      SELECT
-        c."citaID",
-        c."clienteID",
-        c."barberoID",
-        c."servicioID",
-        c.fecha_inicio,
-        c.fecha_fin,
-        c.estado,
-        u.nombre   AS cliente_nombre,
-        u.apellido AS cliente_apellido,
-        ub.nombre  AS barbero_nombre,
-        ub.apellido AS barbero_apellido,
-        s.nombre   AS servicio_nombre,
-        s.precio,
-        s.duracion_minutos
-      FROM cita c
-      JOIN usuario u   ON c."clienteID"  = u."usuarioID"
-      JOIN barbero b   ON c."barberoID"  = b."barberoID"
-      JOIN usuario ub  ON b."usuarioID"  = ub."usuarioID"
-      JOIN servicios s ON c."servicioID" = s."serviciosID"
-      ORDER BY c.fecha_inicio DESC;
-    `;
-    const resultado = await db.query(query);
+    const rol = req.usuario?.rol;
+    const usuarioId = req.usuario?.usuarioID;
+
+    // Los filtros van al final de la consulta y los marcadores de posición se
+    // numeran a partir de $1, así que se numeran en el mismo orden en que se
+    // añaden.
+    let filtro = '';
+    const params = [];
+
+    if (rol === 'cliente') {
+      params.push(usuarioId);
+      filtro = `WHERE c."clienteID" = $1`;
+    } else if (rol === 'barbero') {
+      params.push(usuarioId);
+      filtro = `WHERE b."usuarioID" = $1`;
+    }
+
+    const resultado = await db.query(
+      `${SELECT_CITA} ${filtro} ORDER BY c.fecha_inicio DESC;`,
+      params
+    );
+
     res.json({
       ok: true,
       total: resultado.rows.length,
@@ -50,129 +117,323 @@ const obtenerCitas = async (req, res) => {
   }
 };
 
-// 2. Crear una nueva cita con validación de solapamiento de horarios
-const crearCita = async (req, res) => {
-  const { clienteID, barberoID, servicioID, fecha_hora } = req.body || {};
+/*
+ * 2. Horas ocupadas de un barbero (público)
+ *
+ * La web las necesita antes de que el cliente haya iniciado sesión, para no
+ * ofrecer unas horas que el servidor va a rechazar. Por eso es público: solo
+ * devuelve el intervalo ocupado, sin datos del cliente.
+ *
+ * Parámetros: `barberoID` (obligatorio), `desde`, `hasta` (fechas YYYY-MM-DD)
+ * y `excluir` (el id de una cita que se está reprogramando, que no debe
+ * bloquearse a sí misma).
+ */
+const obtenerOcupados = async (req, res) => {
+  const barberoId = idValido(req.query.barberoID);
 
-  const clienteId = Number(clienteID);
-  const barberoId = Number(barberoID);
-  const servicioId = Number(servicioID);
+  if (!barberoId) {
+    return res.status(400).json({
+      ok: false,
+      message: 'El ID del barbero debe ser un número entero válido'
+    });
+  }
+
+  const params = [barberoId];
+  const filtros = ['c."barberoID" = $1'];
+
+  // El rango se filtra por fecha_inicio: una cita que empieza antes del "desde"
+  // pero que se solapa con él también ocupa ese día.
+  if (req.query.desde) {
+    params.push(`${req.query.desde} 00:00:00`);
+    filtros.push(`c.fecha_inicio >= $${params.length}`);
+  }
+  if (req.query.hasta) {
+    params.push(`${req.query.hasta} 23:59:59`);
+    filtros.push(`c.fecha_inicio <= $${params.length}`);
+  }
+
+  const excluirId = idValido(req.query.excluir);
+  if (excluirId) {
+    params.push(excluirId);
+    filtros.push(`c."citaID" <> $${params.length}`);
+  }
+
+  try {
+    const resultado = await db.query(
+      `SELECT c."citaID", c.fecha_inicio, c.fecha_fin, c.estado
+       FROM cita c
+       WHERE ${filtros.join(' AND ')}
+       ORDER BY c.fecha_inicio ASC;`,
+      params
+    );
+
+    res.json({
+      ok: true,
+      total: resultado.rows.length,
+      ocupados: resultado.rows
+    });
+  } catch (error) {
+    errorInterno(res, error, 'Obtener Citas Ocupadas');
+  }
+};
+
+/*
+ * 3. Comprobaciones de una reserva.
+ *
+ * Es el corazón del módulo: lo usan la cita con cuenta, la cita de invitado y
+ * la reprogramación. Todas tienen que pasar exactamente las mismas
+ * comprobaciones (día de descanso, feriado, horario laboral y solapamiento),
+ * así que viven aquí y no duplicadas en tres sitios.
+ *
+ * Se ejecuta dentro de una transacción: la comprobación y el INSERT tienen que
+ * ser atómicos, o dos reservas simultáneas para la misma hora podrían
+ * colarse.
+ *
+ * Esta función NO escribe nada: solo comprueba. La escritura va en
+ * `agendarCita` (reservar) o en el UPDATE de `reprogramarCita` (mover una
+ * cita que ya existe). Si esta función insertara, al reprogramar se crearía
+ * una cita nueva sin quitar la vieja.
+ *
+ * @param {import('pg').PoolClient} client  Conexión de la transacción.
+ * @param {object} datos
+ * @returns {Promise<{fechaFin: Date, duracionMinutos: number}>}
+ */
+const validarCita = async (client, {
+  barberoId,
+  servicioId,
+  fechaInicio,
+  excluirCitaId = null,
+}) => {
+  // A. Bloquear la fila del barbero para que dos reservas simultáneas
+  //    del mismo barbero no puedan saltarse la validación de solapamiento.
+  const barberoRes = await client.query(
+    'SELECT "barberoID", estado FROM barbero WHERE "barberoID" = $1 FOR UPDATE',
+    [barberoId]
+  );
+  if (barberoRes.rows.length === 0) {
+    throw errorHttp(404, 'Barbero no encontrado');
+  }
+  if (!barberoRes.rows[0].estado) {
+    throw errorHttp(400, 'El barbero no está activo');
+  }
+
+  // B. La duración del servicio define la hora de fin de la cita
+  const servicioRes = await client.query(
+    'SELECT "serviciosID", duracion_minutos FROM servicios WHERE "serviciosID" = $1',
+    [servicioId]
+  );
+  if (servicioRes.rows.length === 0) {
+    throw errorHttp(404, 'Servicio no encontrado');
+  }
+  const { duracion_minutos: duracionMinutos } = servicioRes.rows[0];
+  const fechaFin = new Date(fechaInicio.getTime() + duracionMinutos * 60 * 1000);
+
+  // C. Días en los que la peluquería no abre.
+  //
+  // El día de descanso se deduce del día de la semana; los feriados
+  // vienen de la tabla `feriado`.
+  //
+  // Va antes que la comprobación del horario laboral a propósito: si el
+  // barbero no tiene horario un domingo, el mensaje que sale debe decir
+  // que es día de descanso, no que a ese barbero le falta el horario.
+  //
+  // Se comprueba aquí y no solo en la web: es el servidor el que dice que
+  // no, porque el navegador se puede saltarse.
+  if (esDiaDeDescanso(fechaInicio)) {
+    throw errorHttp(400, mensajeDiaDeDescanso(fechaInicio));
+  }
+
+  const feriadoRes = await client.query(
+    'SELECT nombre FROM feriado WHERE fecha = $1',
+    [fechaYmd(fechaInicio)]
+  );
+  if (feriadoRes.rows.length > 0) {
+    throw errorHttp(400, `No se puede reservar: ${feriadoRes.rows[0].nombre}.`);
+  }
+
+  // D. La cita debe caer dentro del horario laboral configurado para ese día.
+  const dia = nombreDia(fechaInicio);
+  const horarioRes = await client.query(
+    `SELECT hora_inicio, hora_fin
+     FROM horario_laboral
+     WHERE "barberoID" = $1 AND dia_semana = $2`,
+    [barberoId, dia]
+  );
+  if (horarioRes.rows.length === 0) {
+    throw errorHttp(400, `El barbero no tiene horario configurado para el ${dia}`);
+  }
+
+  const { hora_inicio: horaInicio, hora_fin: horaFin } = horarioRes.rows[0];
+
+  // Un servicio que termina de madrugada no se puede validar contra una franja
+  // horaria del mismo día, así que se rechaza explícitamente.
+  if (fechaFin.toDateString() !== fechaInicio.toDateString()) {
+    throw errorHttp(400, 'La cita no puede cruzar la medianoche');
+  }
+
+  const citaInicioMin = fechaInicio.getHours() * 60 + fechaInicio.getMinutes();
+  const citaFinMin = fechaFin.getHours() * 60 + fechaFin.getMinutes();
+
+  if (citaInicioMin < horaAMinutos(horaInicio) || citaFinMin > horaAMinutos(horaFin)) {
+    throw errorHttp(400, `La cita está fuera del horario laboral del barbero (${horaInicio} - ${horaFin})`);
+  }
+
+  // E. Solapamiento: el intervalo [fecha_inicio, fecha_fin) de la nueva cita
+  //    contra las citas existentes del mismo barbero. Las canceladas no bloquean.
+  const paramsCruce = [barberoId, fechaInicio, fechaFin];
+  let filtroCruce = '';
+
+  // Al reprogramar, la cita que se está moviendo no debe bloquearse a sí misma.
+  if (excluirCitaId) {
+    paramsCruce.push(excluirCitaId);
+    filtroCruce = ` AND "citaID" <> $${paramsCruce.length}`;
+  }
+
+  const cruce = await client.query(
+    `SELECT "citaID", fecha_inicio, fecha_fin
+     FROM cita
+     WHERE "barberoID" = $1
+       AND estado <> 'cancelada'
+       AND fecha_inicio < $3
+       AND fecha_fin   > $2${filtroCruce}`,
+    paramsCruce
+  );
+  if (cruce.rows.length > 0) {
+    throw errorHttp(400, 'El barbero ya tiene una cita que se cruza con ese horario');
+  }
+
+  return { fechaFin, duracionMinutos };
+};
+
+/*
+ * 4. Comprobaciones + INSERT de una reserva nueva.
+ *
+ * Es la versión que escribe: primero pasa todas las comprobaciones de
+ * `validarCita` y, si todas pasan, guarda la cita.
+ *
+ * @param {import('pg').PoolClient} client  Conexión de la transacción.
+ * @param {object} datos
+ * @returns {Promise<object>} La cita guardada.
+ */
+const agendarCita = async (client, {
+  clienteId = null,
+  barberoId,
+  servicioId,
+  fechaInicio,
+  esInvitado = false,
+  nombreInvitado = null,
+  telefonoInvitado = null,
+  codigo = null,
+  excluirCitaId = null,
+}) => {
+  const { fechaFin } = await validarCita(client, {
+    barberoId,
+    servicioId,
+    fechaInicio,
+    excluirCitaId,
+  });
+
+  // F. Insertar la nueva cita
+  const insercion = await client.query(
+    `INSERT INTO cita ("clienteID", "barberoID", "servicioID", fecha_inicio, fecha_fin, estado, es_invitado, contacto_nombre, contacto_telefono, codigo)
+     VALUES ($1, $2, $3, $4, $5, 'pendiente', $6, $7, $8, $9)
+     RETURNING "citaID", "clienteID", "barberoID", "servicioID", fecha_inicio, fecha_fin, estado, es_invitado, contacto_nombre, contacto_telefono, codigo;`,
+    [
+      esInvitado ? null : clienteId,
+      barberoId,
+      servicioId,
+      fechaInicio,
+      fechaFin,
+      esInvitado,
+      esInvitado ? nombreInvitado : null,
+      esInvitado ? telefonoInvitado : null,
+      codigo,
+    ]
+  );
+  return insercion.rows[0];
+};
+
+/*
+ * 4. Crear una nueva cita con validación de solapamiento de horarios
+ *
+ * La cita puede ser de un cliente registrado (`clienteID`) o de un invitado
+ * (`contacto_nombre` + `contacto_telefono`): gente que llega al local sin
+ * cuenta. El panel de administración agenda las dos.
+ */
+const crearCita = async (req, res) => {
+  const {
+    clienteID,
+    barberoID,
+    servicioID,
+    fecha_hora,
+    contacto_nombre,
+    contacto_telefono,
+  } = req.body || {};
+
+  const barberoId = idValido(barberoID);
+  const servicioId = idValido(servicioID);
+  const clienteId = clienteID === undefined || clienteID === null || clienteID === ''
+    ? null
+    : idValido(clienteID);
   const fechaInicio = fecha_hora ? parsearFechaHora(fecha_hora) : null;
 
+  const nombreInvitado = typeof contacto_nombre === 'string' ? contacto_nombre.trim() : '';
+  const telefonoInvitado = typeof contacto_telefono === 'string' ? contacto_telefono.trim() : '';
+  const esInvitado = !clienteId;
+
   if (
-    !Number.isInteger(clienteId) || clienteId <= 0 ||
-    !Number.isInteger(barberoId) || barberoId <= 0 ||
-    !Number.isInteger(servicioId) || servicioId <= 0 ||
+    !Number.isInteger(barberoId) ||
+    !Number.isInteger(servicioId) ||
     !fechaInicio || Number.isNaN(fechaInicio.getTime())
   ) {
     return res.status(400).json({
       ok: false,
-      message: 'clienteID, barberoID, servicioID y una fecha_hora válida son obligatorios'
+      message: 'barberoID, servicioID y una fecha_hora válida son obligatorios'
+    });
+  }
+
+  if (esInvitado) {
+    if (!nombreInvitado || !telefonoValido(telefonoInvitado)) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Un invitado necesita nombre y un teléfono de al menos 7 dígitos'
+      });
+    }
+  } else if (!Number.isInteger(clienteId) || clienteId <= 0) {
+    return res.status(400).json({
+      ok: false,
+      message: 'clienteID debe ser un número entero válido'
+    });
+  }
+
+  // Una cita solo se agenda en nombre propio salvo que quien llama sea el
+  // administrador (el panel agenda citas para clientes que llegan por
+  // teléfono). Sin esta comprobación, un cliente podía agendar citas en la
+  // cuenta de otro.
+  const rol = req.usuario?.rol;
+  const usuarioId = req.usuario?.usuarioID;
+  if (rol !== 'administrador' && !esInvitado && clienteId !== usuarioId) {
+    return res.status(403).json({
+      ok: false,
+      message: 'Solo puedes agendar citas en tu nombre'
     });
   }
 
   try {
     const cita = await db.withTransaction(async (client) => {
-      // A. Bloquear la fila del barbero para que dos reservas simultáneas
-      //    del mismo barbero no puedan saltarse la validación de solapamiento.
-      const barberoRes = await client.query(
-        'SELECT "barberoID", estado FROM barbero WHERE "barberoID" = $1 FOR UPDATE',
-        [barberoId]
-      );
-      if (barberoRes.rows.length === 0) {
-        throw errorHttp(404, 'Barbero no encontrado');
-      }
-      if (!barberoRes.rows[0].estado) {
-        throw errorHttp(400, 'El barbero no está activo');
-      }
+      const guardada = await agendarCita(client, {
+        clienteId: esInvitado ? null : clienteId,
+        barberoId,
+        servicioId,
+        fechaInicio,
+        esInvitado,
+        nombreInvitado: nombreInvitado || null,
+        telefonoInvitado: telefonoInvitado || null,
+      });
 
-      // B. La duración del servicio define la hora de fin de la cita
-      const servicioRes = await client.query(
-        'SELECT "serviciosID", duracion_minutos FROM servicios WHERE "serviciosID" = $1',
-        [servicioId]
-      );
-      if (servicioRes.rows.length === 0) {
-        throw errorHttp(404, 'Servicio no encontrado');
-      }
-      const { duracion_minutos: duracionMinutos } = servicioRes.rows[0];
-      const fechaFin = new Date(fechaInicio.getTime() + duracionMinutos * 60 * 1000);
-
-      // D. Días en los que la peluquería no abre.
-      //
-      // El día de descanso se deduce del día de la semana; los feriados
-      // vienen de la tabla `feriado`.
-      //
-      // Va antes que la comprobación del horario laboral a propósito: si el
-      // barbero no tiene horario un domingo, el mensaje que sale debe decir
-      // que es día de descanso, no que a ese barbero le falta el horario.
-      //
-      // Se comprueba aquí y no solo en la web: es el servidor el que dice que
-      // no, porque el navegador se puede saltarse. Va dentro de la
-      // transacción para que la comprobación y el INSERT sean atómicos.
-      if (esDiaDeDescanso(fechaInicio)) {
-        throw errorHttp(400, mensajeDiaDeDescanso(fechaInicio));
-      }
-
-      const feriadoRes = await client.query(
-        'SELECT nombre FROM feriado WHERE fecha = $1',
-        [fechaYmd(fechaInicio)]
-      );
-      if (feriadoRes.rows.length > 0) {
-        throw errorHttp(400, `No se puede reservar: ${feriadoRes.rows[0].nombre}.`);
-      }
-
-      // E. La cita debe caer dentro del horario laboral configurado para ese día.
-      //    Va dentro de la transacción y usa `client` para que la validación y el
-      //    INSERT sean atómicos.
-      const dia = nombreDia(fechaInicio);
-      const horarioRes = await client.query(
-        `SELECT hora_inicio, hora_fin
-         FROM horario_laboral
-         WHERE "barberoID" = $1 AND dia_semana = $2`,
-        [barberoId, dia]
-      );
-      if (horarioRes.rows.length === 0) {
-        throw errorHttp(400, `El barbero no tiene horario configurado para el ${dia}`);
-      }
-
-      const { hora_inicio: horaInicio, hora_fin: horaFin } = horarioRes.rows[0];
-
-      // Un servicio que termina de madrugada no se puede validar contra una franja
-      // horaria del mismo día, así que se rechaza explícitamente.
-      if (fechaFin.toDateString() !== fechaInicio.toDateString()) {
-        throw errorHttp(400, 'La cita no puede cruzar la medianoche');
-      }
-
-      const citaInicioMin = fechaInicio.getHours() * 60 + fechaInicio.getMinutes();
-      const citaFinMin = fechaFin.getHours() * 60 + fechaFin.getMinutes();
-
-      if (citaInicioMin < horaAMinutos(horaInicio) || citaFinMin > horaAMinutos(horaFin)) {
-        throw errorHttp(400, `La cita está fuera del horario laboral del barbero (${horaInicio} - ${horaFin})`);
-      }
-
-      // F. Solapamiento: el intervalo [fecha_inicio, fecha_fin) de la nueva cita
-      //    contra las citas existentes del mismo barbero. Las canceladas no bloquean.
-      const cruce = await client.query(
-        `SELECT "citaID", fecha_inicio, fecha_fin
-         FROM cita
-         WHERE "barberoID" = $1
-           AND estado <> 'cancelada'
-           AND fecha_inicio < $3
-           AND fecha_fin   > $2`,
-        [barberoId, fechaInicio, fechaFin]
-      );
-      if (cruce.rows.length > 0) {
-        throw errorHttp(400, 'El barbero ya tiene una cita que se cruza con ese horario');
-      }
-
-      // G. Insertar la nueva cita
-      const insercion = await client.query(
-        `INSERT INTO cita ("clienteID", "barberoID", "servicioID", fecha_inicio, fecha_fin, estado)
-         VALUES ($1, $2, $3, $4, $5, 'pendiente')
-         RETURNING "citaID", "clienteID", "barberoID", "servicioID", fecha_inicio, fecha_fin, estado;`,
-        [clienteId, barberoId, servicioId, fechaInicio, fechaFin]
-      );
-      return insercion.rows[0];
+      // Se devuelve la cita con los nombres unidos, igual que el listado.
+      const completa = await client.query(`${SELECT_CITA} WHERE c."citaID" = $1`, [guardada.citaID]);
+      return completa.rows[0];
     });
 
     res.status(201).json({
@@ -194,7 +455,294 @@ const crearCita = async (req, res) => {
   }
 };
 
-// 3. Actualizar estado de la cita (ej. completada, cancelada)
+/*
+ * 5. Reserva sin cuenta (público)
+ *
+ * Es el camino de quien reserva por la web sin registrarse: se guarda la cita
+ * como invitada y se devuelve un código con el que puede verla y cancelarla
+ * (la página /cita/<codigo>). Sin ese código no habría forma de gestionarla:
+ * no hay sesión con la que entrar.
+ */
+const crearCitaPublica = async (req, res) => {
+  const {
+    barberoID,
+    servicioID,
+    fecha_hora,
+    nombre,
+    apellido,
+    telefono,
+  } = req.body || {};
+
+  const barberoId = idValido(barberoID);
+  const servicioId = idValido(servicioID);
+  const fechaInicio = fecha_hora ? parsearFechaHora(fecha_hora) : null;
+
+  const nombreInvitado = [nombre, apellido]
+    .filter((parte) => typeof parte === 'string' && parte.trim())
+    .join(' ')
+    .trim();
+  const telefonoInvitado = typeof telefono === 'string' ? telefono.trim() : '';
+
+  if (
+    !Number.isInteger(barberoId) ||
+    !Number.isInteger(servicioId) ||
+    !fechaInicio || Number.isNaN(fechaInicio.getTime())
+  ) {
+    return res.status(400).json({
+      ok: false,
+      message: 'barberoID, servicioID y una fecha_hora válida son obligatorios'
+    });
+  }
+
+  if (!nombreInvitado) {
+    return res.status(400).json({
+      ok: false,
+      message: 'El nombre es obligatorio'
+    });
+  }
+
+  if (!telefonoValido(telefonoInvitado)) {
+    return res.status(400).json({
+      ok: false,
+      message: 'El teléfono debe tener al menos 7 dígitos'
+    });
+  }
+
+  try {
+    const codigo = generarCodigo();
+
+    const cita = await db.withTransaction(async (client) => {
+      const guardada = await agendarCita(client, {
+        barberoId,
+        servicioId,
+        fechaInicio,
+        esInvitado: true,
+        nombreInvitado,
+        telefonoInvitado,
+        codigo,
+      });
+
+      const completa = await client.query(`${SELECT_CITA} WHERE c."citaID" = $1`, [guardada.citaID]);
+      return completa.rows[0];
+    });
+
+    res.status(201).json({
+      ok: true,
+      message: 'Cita agendada exitosamente',
+      cita,
+      // El código es la única forma de volver a esta cita sin cuenta.
+      codigo: cita.codigo
+    });
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ ok: false, message: error.message });
+    }
+    if (error.code === '23505') {
+      // Choca con el índice único de códigos (prácticamente imposible).
+      return res.status(400).json({ ok: false, message: 'No se pudo generar el código de la cita' });
+    }
+    errorInterno(res, error, 'Crear Cita Publica');
+  }
+};
+
+/*
+ * 6. Ver una cita por su código (público)
+ *
+ * Es la página /cita/<codigo>: el cliente que reservó sin cuenta entra con el
+ * enlace que recibió y ve los datos de su cita.
+ */
+const obtenerCitaPublica = async (req, res) => {
+  const { codigo } = req.params;
+  const codigoLimpio = typeof codigo === 'string' ? codigo.trim() : '';
+
+  if (!codigoLimpio) {
+    return res.status(400).json({
+      ok: false,
+      message: 'Falta el código de la cita'
+    });
+  }
+
+  try {
+    const resultado = await db.query(`${SELECT_CITA} WHERE c.codigo = $1`, [codigoLimpio]);
+
+    if (resultado.rows.length === 0) {
+      return res.status(404).json({ ok: false, message: 'No hay ninguna cita con ese código' });
+    }
+
+    res.json({
+      ok: true,
+      cita: resultado.rows[0]
+    });
+  } catch (error) {
+    errorInterno(res, error, 'Obtener Cita Publica');
+  }
+};
+
+/*
+ * 7. Cancelar una cita por su código (público)
+ *
+ * Solo se puede cancelar una cita que siga en pie (pendiente o confirmada):
+ * una cita completada ya no se toca.
+ */
+const cancelarCitaPublica = async (req, res) => {
+  const { codigo } = req.params;
+  const codigoLimpio = typeof codigo === 'string' ? codigo.trim() : '';
+
+  if (!codigoLimpio) {
+    return res.status(400).json({
+      ok: false,
+      message: 'Falta el código de la cita'
+    });
+  }
+
+  try {
+    const actual = await db.query(
+      'SELECT "citaID", estado FROM cita WHERE codigo = $1',
+      [codigoLimpio]
+    );
+
+    if (actual.rows.length === 0) {
+      return res.status(404).json({ ok: false, message: 'No hay ninguna cita con ese código' });
+    }
+
+    if (!['pendiente', 'confirmada'].includes(actual.rows[0].estado)) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Esta cita ya no se puede cancelar'
+      });
+    }
+
+    const resultado = await db.query(
+      `UPDATE cita SET estado = 'cancelada' WHERE codigo = $1 RETURNING "citaID";`,
+      [codigoLimpio]
+    );
+
+    const completa = await db.query(`${SELECT_CITA} WHERE c."citaID" = $1`, [resultado.rows[0].citaID]);
+
+    res.json({
+      ok: true,
+      message: 'Cita cancelada exitosamente',
+      cita: completa.rows[0]
+    });
+  } catch (error) {
+    errorInterno(res, error, 'Cancelar Cita Publica');
+  }
+};
+
+/*
+ * 8. Reprogramar una cita (cambiarle la fecha y la hora)
+ *
+ * La web ofrece "Reprogramar" tanto al cliente (desde "Mis citas") como al
+ * administrador. Pasa por las mismas comprobaciones que una reserva nueva: la
+ * nueva hora tiene que estar dentro del horario laboral, no puede ser un día
+ * de descanso ni un feriado, y no puede cruzarse con otra cita.
+ */
+const reprogramarCita = async (req, res) => {
+  const citaId = idValido(req.params.id);
+  const { fecha_hora } = req.body || {};
+
+  if (!citaId) {
+    return res.status(400).json({
+      ok: false,
+      message: 'El ID de la cita debe ser un número entero válido'
+    });
+  }
+
+  const fechaInicio = fecha_hora ? parsearFechaHora(fecha_hora) : null;
+
+  if (!fechaInicio || Number.isNaN(fechaInicio.getTime())) {
+    return res.status(400).json({
+      ok: false,
+      message: 'Una fecha_hora válida es obligatoria'
+    });
+  }
+
+  const rol = req.usuario?.rol;
+  const usuarioId = req.usuario?.usuarioID;
+
+  try {
+    const actual = await db.query(
+      `SELECT c."citaID", c."clienteID", c."barberoID", c."servicioID", c.estado,
+              b."usuarioID" AS barbero_usuarioID
+       FROM cita c
+       JOIN barbero b ON b."barberoID" = c."barberoID"
+       WHERE c."citaID" = $1`,
+      [citaId]
+    );
+
+    if (actual.rows.length === 0) {
+      return res.status(404).json({ ok: false, message: 'Cita no encontrada' });
+    }
+
+    const cita = actual.rows[0];
+
+    if (cita.estado === 'cancelada' || cita.estado === 'completada') {
+      return res.status(400).json({
+        ok: false,
+        message: 'Esta cita ya no se puede reprogramar'
+      });
+    }
+
+    // Solo se reprograma la cita de uno mismo (o cualquiera, si es el
+    // administrador). El barbero puede reprogramar las de su agenda.
+    const esDueña = cita.clienteID !== null && cita.clienteID === usuarioId;
+    const esSuAgenda = cita.barbero_usuarioID === usuarioId;
+
+    if (rol !== 'administrador' && !esDueña && !esSuAgenda) {
+      return res.status(403).json({
+        ok: false,
+        message: 'No tienes permisos para reprogramar esta cita'
+      });
+    }
+
+    await db.withTransaction(async (client) => {
+      // Se comprueba la nueva hora con las mismas reglas que una reserva
+      // (descanso, feriado, horario laboral y solapamiento), excluyendo la
+      // propia cita para que no se bloquee a sí misma.
+      //
+      // OJO: aquí solo se valida. La escritura es el UPDATE de abajo: si se
+      // usara `agendarCita`, se crearía una cita nueva y la vieja se quedaría
+      // en su sitio.
+      const { fechaFin } = await validarCita(client, {
+        barberoId: cita.barberoID,
+        servicioId: cita.servicioID,
+        fechaInicio,
+        excluirCitaId: citaId,
+      });
+
+      await client.query(
+        'UPDATE cita SET fecha_inicio = $1, fecha_fin = $2 WHERE "citaID" = $3',
+        [fechaInicio, fechaFin, citaId]
+      );
+    });
+
+    const completa = await db.query(`${SELECT_CITA} WHERE c."citaID" = $1`, [citaId]);
+
+    res.json({
+      ok: true,
+      message: 'Cita reprogramada exitosamente',
+      cita: completa.rows[0]
+    });
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ ok: false, message: error.message });
+    }
+    errorInterno(res, error, 'Reprogramar Cita');
+  }
+};
+
+// 9. Actualizar estado de la cita (ej. completada, cancelada)
+//
+// Los permisos se comprueban aquí y no solo en la ruta, porque no todos los
+// roles tienen los mismos derechos:
+//
+//   - **administrador**: cualquier estado, en cualquier cita.
+//   - **barbero**: cualquier estado, pero solo en las citas de su agenda.
+//   - **cliente**: solo puede **cancelar** una cita suya. La web le muestra el
+//     botón "Cancelar" en "Mis citas" (components/ListaCitas.jsx), así que sin
+//     esta excepción ese botón siempre fallaría con un 403.
+//
+//   Cualquier otro cambio de estado hecho por un cliente es un 403.
 const actualizarEstadoCita = async (req, res) => {
   const { id } = req.params;
   const { estado } = req.body || {};
@@ -213,7 +761,48 @@ const actualizarEstadoCita = async (req, res) => {
     });
   }
 
+  const rol = req.usuario?.rol;
+  const usuarioId = req.usuario?.usuarioID;
+
   try {
+    // La cita se carga con el usuario de su barbero para poder comprobar de
+    // quién es la agenda.
+    const actual = await db.query(
+      `SELECT c."citaID", c."clienteID", b."usuarioID" AS barbero_usuarioID
+       FROM cita c
+       JOIN barbero b ON b."barberoID" = c."barberoID"
+       WHERE c."citaID" = $1`,
+      [citaId]
+    );
+
+    if (actual.rows.length === 0) {
+      return res.status(404).json({ ok: false, message: 'Cita no encontrada' });
+    }
+
+    const { clienteID, barbero_usuarioID: barberoUsuarioID } = actual.rows[0];
+
+    if (rol === 'cliente') {
+      if (estado !== 'cancelada') {
+        return res.status(403).json({
+          ok: false,
+          message: 'No tienes permisos para realizar esta acción.'
+        });
+      }
+      if (clienteID !== usuarioId) {
+        return res.status(403).json({
+          ok: false,
+          message: 'Solo puedes cancelar tus propias citas'
+        });
+      }
+    } else if (rol === 'barbero') {
+      if (barberoUsuarioID !== usuarioId) {
+        return res.status(403).json({
+          ok: false,
+          message: 'Solo puedes cambiar el estado de las citas de tu agenda'
+        });
+      }
+    }
+
     const resultado = await db.query(
       'UPDATE cita SET estado = $1 WHERE "citaID" = $2 RETURNING "citaID", "clienteID", "barberoID", "servicioID", fecha_inicio, fecha_fin, estado;',
       [estado, citaId]
@@ -235,6 +824,11 @@ const actualizarEstadoCita = async (req, res) => {
 
 module.exports = {
   obtenerCitas,
+  obtenerOcupados,
   crearCita,
+  crearCitaPublica,
+  obtenerCitaPublica,
+  cancelarCitaPublica,
+  reprogramarCita,
   actualizarEstadoCita
 };

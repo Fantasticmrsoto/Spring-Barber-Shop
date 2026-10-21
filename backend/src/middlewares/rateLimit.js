@@ -8,8 +8,9 @@ const { ipKeyGenerator } = require('express-rate-limit');
  * quien contraseña bien sería una molestia sin ganancia: el ataque que importa es
  * el de fuerza bruta, y ese se caracteriza justamente por fallar.
  *
- * ALCANCE: solo POST /api/auth/login. Aplicarlo a toda la API rompería el flujo
- * normal, donde un mismo cliente hace varias peticiones seguidas.
+ * ALCANCE: solo POST /api/auth/login y POST /api/auth/recuperar. Aplicarlo a toda
+ * la API rompería el flujo normal, donde un mismo cliente hace varias peticiones
+ * seguidas.
  */
 
 // Clave del contador.
@@ -47,6 +48,28 @@ const limitadorLogin = rateLimit({
 });
 
 /*
+ * Límite aparte para la recuperación de contraseña.
+ *
+ * Es un contador independiente del del login, no uno compartido: son dos ataques
+ * distintos (adivinar la clave contra el login, y adivinar el par
+ * correo + teléfono contra la recuperación). Si compartieran el mismo contador,
+ * quien fallara al entrar diez veces dejaría bloqueada la recuperación de
+ * cualquier cuenta de esa IP, y al revés.
+ */
+const limitadorRecuperacion = rateLimit({
+  windowMs: VENTANA_MS,
+  max: MAX_INTENTOS,
+  skipSuccessfulRequests: true,
+  keyGenerator: clavePorIp,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: {
+    ok: false,
+    message: 'Demasiados intentos de recuperación. Intenta de nuevo en unos minutos.'
+  }
+});
+
+/*
  * Pone el contador de esta IP a cero cuando la respuesta no fue un error.
  *
  * Hace falta porque `skipSuccessfulRequests` NO reinicia nada: solo evita que un
@@ -65,6 +88,16 @@ const reiniciarSiExito = (req, res, next) => {
   next();
 };
 
+/* Igual que `reiniciarSiExito`, pero para otro limitador. */
+const reiniciarSiExitoEn = (limitador) => (req, res, next) => {
+  res.on('finish', () => {
+    if (res.statusCode < 400) {
+      limitador.resetKey(clavePorIp(req));
+    }
+  });
+  next();
+};
+
 /*
  * Limitaciones conocidas:
  * - El almacén por defecto es memoria del proceso. Con una sola instancia sirve;
@@ -75,4 +108,9 @@ const reiniciarSiExito = (req, res, next) => {
  *   peticiones parecen venir de la misma IP y el límite se agota de golpe.
  */
 
-module.exports = { limitadorLogin, reiniciarSiExito };
+module.exports = {
+  limitadorLogin,
+  limitadorRecuperacion,
+  reiniciarSiExito,
+  reiniciarSiExitoEn
+};

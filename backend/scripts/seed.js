@@ -49,6 +49,8 @@ const USUARIOS = [
     correo: 'admin@springbarber.com',
     telefono: '04124370853',
     rol: 'administrador',
+    // Variable de entorno que puede forzar la contraseña de esta cuenta.
+    envClave: 'SEED_ADMIN_PASSWORD',
     clave: process.env.SEED_ADMIN_PASSWORD || 'springbarber2026',
   },
   {
@@ -57,6 +59,7 @@ const USUARIOS = [
     correo: 'barbero@springbarber.com',
     telefono: '3007778899',
     rol: 'barbero',
+    envClave: 'SEED_BARBERO_PASSWORD',
     clave: process.env.SEED_BARBERO_PASSWORD || 'springbarber2026',
   },
   {
@@ -65,6 +68,7 @@ const USUARIOS = [
     correo: 'cliente@springbarber.com',
     telefono: '3001234567',
     rol: 'cliente',
+    envClave: 'SEED_CLIENTE_PASSWORD',
     clave: process.env.SEED_CLIENTE_PASSWORD || 'springbarber2026',
   },
 ];
@@ -108,7 +112,25 @@ const barberoExiste = async (usuarioId) => {
     const existente = await usuarioExiste(u.correo);
     if (existente) {
       idsUsuarios[u.rol] = existente;
-      console.log(`    · ${u.correo} (ya existía)`);
+
+      // Si se define la contraseña por entorno y la cuenta ya existía, se
+      // actualiza la clave para que coincida con la que espera el entorno.
+      //
+      // Sin esto, el seed es idempotente pero *no* determinista: si el
+      // administrador ya estaba creado con otra clave, `SEED_ADMIN_PASSWORD`
+      // no cambiaba nada y las pruebas de CI (que inician sesión con ese
+      // usuario) fallaban por una contraseña vieja.
+      //
+      // Solo se toca la clave cuando la variable de entorno está definida
+      // explícitamente: sin ella, el seed no modifica cuentas existentes.
+      const claveDefinida = process.env[u.envClave];
+      if (claveDefinida) {
+        const hash = await bcrypt.hash(claveDefinida, 10);
+        await pool.query('UPDATE usuario SET clave = $1 WHERE "usuarioID" = $2', [hash, existente]);
+        console.log(`    · ${u.correo} (ya existía; clave actualizada)`);
+      } else {
+        console.log(`    · ${u.correo} (ya existía)`);
+      }
       continue;
     }
     const hash = await bcrypt.hash(u.clave, 10);

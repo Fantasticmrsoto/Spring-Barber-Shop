@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const { errorInterno } = require('../utils/respuestaError');
-const { DIAS_SEMANA, horaAMinutos, esHoraValida, idValido } = require('../utils/validacion');
+const { DIAS_SEMANA, horaAMinutos, esHoraValida } = require('../utils/validacion');
+const { esAdministradorDeBarbero, forbiddenNoEsSuBarbero } = require('../utils/permisos');
 
 // Días aceptados por el CHECK horario_laboral_dia_check (migración 004).
 // Se usan en minúsculas y sin tilde; citaController convierte la fecha al mismo nombre.
@@ -75,6 +76,13 @@ const guardarHorario = async (req, res) => {
     });
   }
 
+  // La ruta deja pasar al administrador y al barbero, pero un barbero solo
+  // puede cambiar **su** horario: si no, cualquiera con cuenta de barbero
+  // cerraba la agenda de sus compañeros.
+  if (!(await esAdministradorDeBarbero(barberoId, req.usuario))) {
+    return forbiddenNoEsSuBarbero(res, 'Solo puedes modificar tu propio horario');
+  }
+
   try {
     // Validar que el barbero exista
     const barberoRes = await db.query(
@@ -128,6 +136,11 @@ const eliminarHorario = async (req, res) => {
       ok: false,
       message: `El día debe ser uno de: ${DIAS_VALIDOS.join(', ')}`
     });
+  }
+
+  // Igual que al guardar: un barbero solo toca el horario de su agenda.
+  if (!(await esAdministradorDeBarbero(barberoId, req.usuario))) {
+    return forbiddenNoEsSuBarbero(res, 'Solo puedes modificar tu propio horario');
   }
 
   try {
