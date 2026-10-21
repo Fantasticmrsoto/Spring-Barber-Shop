@@ -1,12 +1,25 @@
 import { useEffect, useState } from 'react'
-import { getBarberos, crearBarbero } from '../../api/barberos'
+import { getBarberos, crearBarbero, actualizarBarbero } from '../../api/barberos'
 import { getUsuarios } from '../../api/usuarios'
+import { getServicios } from '../../api/servicios'
+import { getServiciosDeBarbero, asignarServicio, desasignarServicio } from '../../api/barberoServicios'
 import { mensajeDeError } from '../../api/client'
-import { inputClase, botonPrimario, etiqueta, tarjeta } from '../../ui/estilos'
+import { precio } from '../../utils/formato'
+import { inputClase, botonPrimario, botonSecundario, etiqueta, tarjeta } from '../../ui/estilos'
+
+const FICHA_VACIA = {
+  comision: '20',
+  estado: true,
+  descripcion: '',
+  especialidad: '',
+  instagram: '',
+  telefono_contacto: '',
+}
 
 export default function AdminBarberos() {
   const [barberos, setBarberos] = useState([])
   const [usuarios, setUsuarios] = useState([])
+  const [servicios, setServicios] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
   const [aviso, setAviso] = useState(null)
@@ -14,13 +27,23 @@ export default function AdminBarberos() {
   const [enviando, setEnviando] = useState(false)
   const [recarga, setRecarga] = useState(0)
 
+  // Ficha del barbero que se está editando (comisión, estado y datos públicos).
+  const [editandoID, setEditandoID] = useState(null)
+  const [ficha, setFicha] = useState(FICHA_VACIA)
+  const [guardandoFicha, setGuardandoFicha] = useState(false)
+
+  // Servicios que ofrece el barbero seleccionado.
+  const [serviciosDe, setServiciosDe] = useState(null)
+  const [asignados, setAsignados] = useState(new Set())
+
   useEffect(() => {
     let activo = true
-    Promise.all([getBarberos(), getUsuarios()])
-      .then(([b, u]) => {
+    Promise.all([getBarberos(), getUsuarios(), getServicios()])
+      .then(([b, u, s]) => {
         if (!activo) return
         setBarberos(b)
         setUsuarios(u)
+        setServicios(s)
       })
       .catch((err) => activo && setError(mensajeDeError(err)))
       .finally(() => activo && setCargando(false))
@@ -56,87 +79,317 @@ export default function AdminBarberos() {
     }
   }
 
+  function editar(b) {
+    setAviso(null)
+    setEditandoID(b.barberoID)
+    setFicha({
+      comision: String(b.comision ?? 20),
+      estado: b.estado ?? true,
+      descripcion: b.descripcion ?? '',
+      especialidad: b.especialidad ?? '',
+      instagram: b.instagram ?? '',
+      telefono_contacto: b.telefono_contacto ?? '',
+    })
+  }
+
+  function cancelarEdicion() {
+    setEditandoID(null)
+    setFicha(FICHA_VACIA)
+    setAviso(null)
+  }
+
+  async function guardarFicha(e) {
+    e.preventDefault()
+    setAviso(null)
+    setGuardandoFicha(true)
+    try {
+      const barbero = await actualizarBarbero(editandoID, {
+        comision: Number(ficha.comision),
+        estado: ficha.estado,
+        descripcion: ficha.descripcion,
+        especialidad: ficha.especialidad,
+        instagram: ficha.instagram,
+        telefono_contacto: ficha.telefono_contacto,
+      })
+      setBarberos((prev) =>
+        prev.map((b) => (b.barberoID === barbero.barberoID ? { ...b, ...barbero } : b)),
+      )
+      setAviso('Barbero actualizado.')
+      setEditandoID(null)
+    } catch (err) {
+      setAviso(mensajeDeError(err))
+    } finally {
+      setGuardandoFicha(false)
+    }
+  }
+
+  // Al elegir un barbero se cargan los servicios que ofrece.
+  async function cargarServicios(barberoID) {
+    setServiciosDe(barberoID)
+    setAsignados(new Set())
+    try {
+      const suyos = await getServiciosDeBarbero(barberoID)
+      setAsignados(new Set(suyos.map((s) => s.serviciosID)))
+    } catch (err) {
+      setAviso(mensajeDeError(err))
+    }
+  }
+
+  async function alternarServicio(servicio) {
+    if (!serviciosDe) return
+    setAviso(null)
+    const asignado = asignados.has(servicio.serviciosID)
+    try {
+      if (asignado) {
+        await desasignarServicio(serviciosDe, servicio.serviciosID)
+        setAsignados((prev) => {
+          const n = new Set(prev)
+          n.delete(servicio.serviciosID)
+          return n
+        })
+      } else {
+        await asignarServicio(serviciosDe, servicio.serviciosID)
+        setAsignados((prev) => new Set(prev).add(servicio.serviciosID))
+      }
+    } catch (err) {
+      setAviso(mensajeDeError(err))
+    }
+  }
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
-      <div>
-        <p className="mb-3 text-xs text-cream-200/50">
-          La API no permite editar comisión ni desactivar un barbero: eso se hace en
-          la base de datos.
-        </p>
-        {cargando && <p className="text-cream-200/70">Cargando barberos…</p>}
-        {error && <p className="text-red-400">{error}</p>}
-        <div className="space-y-2">
-          {barberos.map((b) => (
-            <div
-              key={b.barberoID}
-              className={`${tarjeta} flex flex-wrap items-center gap-3 px-4 py-3`}
-            >
-              <div className="min-w-[12rem]">
-                <p className="text-sm font-semibold text-cream-50">
-                  {b.nombre} {b.apellido}
-                </p>
-                <p className="text-xs text-cream-200/50">{b.correo}</p>
-              </div>
-              <span className="text-xs text-cream-200/60">Comisión {b.comision}%</span>
-              <span
-                className={`rounded-full px-3 py-1 text-xs uppercase tracking-wider ${
-                  b.estado
-                    ? 'bg-emerald-500/15 text-emerald-300'
-                    : 'bg-white/10 text-cream-200/60'
+    <div className="space-y-8">
+      <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
+        <div>
+          {cargando && <p className="text-cream-200/70">Cargando barberos…</p>}
+          {error && <p className="text-red-400">{error}</p>}
+          <div className="space-y-2">
+            {barberos.map((b) => (
+              <div
+                key={b.barberoID}
+                className={`${tarjeta} flex flex-wrap items-center gap-3 px-4 py-3 ${
+                  editandoID === b.barberoID ? 'ring-1 ring-gold-500/60' : ''
                 }`}
               >
-                {b.estado ? 'Activo' : 'Inactivo'}
-              </span>
-            </div>
-          ))}
+                <div className="min-w-[12rem]">
+                  <p className="text-sm font-semibold text-cream-50">
+                    {b.nombre} {b.apellido}
+                  </p>
+                  <p className="text-xs text-cream-200/50">{b.correo}</p>
+                </div>
+                <span className="text-xs text-cream-200/60">Comisión {b.comision}%</span>
+                <span
+                  className={`rounded-full px-3 py-1 text-xs uppercase tracking-wider ${
+                    b.estado
+                      ? 'bg-emerald-500/15 text-emerald-300'
+                      : 'bg-white/10 text-cream-200/60'
+                  }`}
+                >
+                  {b.estado ? 'Activo' : 'Inactivo'}
+                </span>
+                {b.especialidad && (
+                  <span className="text-xs text-cream-200/50">{b.especialidad}</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => editar(b)}
+                  className="ml-auto text-xs uppercase tracking-wider text-gold-300 transition hover:text-gold-200"
+                >
+                  Editar
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <form onSubmit={enviar} className="h-fit rounded-xl border border-white/10 bg-ink-900 p-5">
+            <h2 className="font-display text-sm uppercase tracking-widest text-gold-400">
+              Nuevo barbero
+            </h2>
+            <label className={`mt-4 ${etiqueta}`}>
+              Usuario
+              <select
+                value={form.usuarioID}
+                onChange={(e) => setForm((f) => ({ ...f, usuarioID: e.target.value }))}
+                className={`mt-2 ${inputClase}`}
+              >
+                <option value="">Selecciona…</option>
+                {candidatos.map((u) => (
+                  <option key={u.usuarioID} value={u.usuarioID}>
+                    {u.nombre} {u.apellido} · {u.correo}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={`mt-3 ${etiqueta}`}>
+              Comisión (%)
+              <input
+                type="number"
+                min="0"
+                max="999.99"
+                step="0.01"
+                value={form.comision}
+                onChange={(e) => setForm((f) => ({ ...f, comision: e.target.value }))}
+                className={`mt-2 ${inputClase}`}
+              />
+            </label>
+            <label className="mt-4 flex items-center gap-3 text-sm text-cream-200">
+              <input
+                type="checkbox"
+                checked={form.estado}
+                onChange={(e) => setForm((f) => ({ ...f, estado: e.target.checked }))}
+                className="h-4 w-4 accent-gold-500"
+              />
+              Activo
+            </label>
+            {aviso && <p className="mt-4 text-sm text-amber-200">{aviso}</p>}
+            <button type="submit" disabled={enviando} className={`mt-5 w-full ${botonPrimario}`}>
+              Crear barbero
+            </button>
+          </form>
+
+          {editandoID && (
+            <form
+              onSubmit={guardarFicha}
+              className="h-fit rounded-xl border border-gold-500/40 bg-ink-900 p-5"
+            >
+              <h2 className="font-display text-sm uppercase tracking-widest text-gold-400">
+                Editar barbero
+              </h2>
+
+              <label className={`mt-4 ${etiqueta}`}>
+                Comisión (%)
+                <input
+                  type="number"
+                  min="0"
+                  max="999.99"
+                  step="0.01"
+                  value={ficha.comision}
+                  onChange={(e) => setFicha((f) => ({ ...f, comision: e.target.value }))}
+                  className={`mt-2 ${inputClase}`}
+                />
+              </label>
+
+              <label className="mt-4 flex items-center gap-3 text-sm text-cream-200">
+                <input
+                  type="checkbox"
+                  checked={ficha.estado}
+                  onChange={(e) => setFicha((f) => ({ ...f, estado: e.target.checked }))}
+                  className="h-4 w-4 accent-gold-500"
+                />
+                Activo
+              </label>
+
+              <label className={`mt-3 ${etiqueta}`}>
+                Descripción
+                <textarea
+                  rows="3"
+                  value={ficha.descripcion}
+                  onChange={(e) => setFicha((f) => ({ ...f, descripcion: e.target.value }))}
+                  className={`mt-2 ${inputClase}`}
+                />
+              </label>
+
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <label className={etiqueta}>
+                  Especialidad
+                  <input
+                    value={ficha.especialidad}
+                    onChange={(e) => setFicha((f) => ({ ...f, especialidad: e.target.value }))}
+                    className={`mt-2 ${inputClase}`}
+                  />
+                </label>
+                <label className={etiqueta}>
+                  Instagram
+                  <input
+                    value={ficha.instagram}
+                    onChange={(e) => setFicha((f) => ({ ...f, instagram: e.target.value }))}
+                    placeholder="@usuario"
+                    className={`mt-2 ${inputClase}`}
+                  />
+                </label>
+              </div>
+
+              <label className={`mt-3 ${etiqueta}`}>
+                Teléfono de contacto
+                <input
+                  value={ficha.telefono_contacto}
+                  onChange={(e) => setFicha((f) => ({ ...f, telefono_contacto: e.target.value }))}
+                  placeholder="300 000 0000"
+                  className={`mt-2 ${inputClase}`}
+                />
+              </label>
+
+              {aviso && <p className="mt-4 text-sm text-amber-200">{aviso}</p>}
+
+              <div className="mt-5 flex gap-2">
+                <button type="submit" disabled={guardandoFicha} className={`flex-1 ${botonPrimario}`}>
+                  {guardandoFicha ? 'Guardando…' : 'Guardar cambios'}
+                </button>
+                <button type="button" onClick={cancelarEdicion} className={botonSecundario}>
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
 
-      <form onSubmit={enviar} className="h-fit rounded-xl border border-white/10 bg-ink-900 p-5">
+      <div className="rounded-xl border border-white/10 bg-ink-900 p-5">
         <h2 className="font-display text-sm uppercase tracking-widest text-gold-400">
-          Nuevo barbero
+          Servicios por barbero
         </h2>
-        <label className={`mt-4 ${etiqueta}`}>
-          Usuario
+        <p className="mt-1 text-xs text-cream-200/50">
+          Un barbero solo puede recibir citas de los servicios que tenga aquí. Un servicio sin
+          barbero asignado no aparece en la web al reservar.
+        </p>
+
+        <label className={`mt-4 ${etiqueta} max-w-xs`}>
+          Barbero
           <select
-            value={form.usuarioID}
-            onChange={(e) => setForm((f) => ({ ...f, usuarioID: e.target.value }))}
+            value={serviciosDe ?? ''}
+            onChange={(e) => cargarServicios(e.target.value)}
             className={`mt-2 ${inputClase}`}
           >
             <option value="">Selecciona…</option>
-            {candidatos.map((u) => (
-              <option key={u.usuarioID} value={u.usuarioID}>
-                {u.nombre} {u.apellido} · {u.correo}
+            {barberos.map((b) => (
+              <option key={b.barberoID} value={b.barberoID}>
+                {b.nombre} {b.apellido}
               </option>
             ))}
           </select>
         </label>
-        <label className={`mt-3 ${etiqueta}`}>
-          Comisión (%)
-          <input
-            type="number"
-            min="0"
-            max="999.99"
-            step="0.01"
-            value={form.comision}
-            onChange={(e) => setForm((f) => ({ ...f, comision: e.target.value }))}
-            className={`mt-2 ${inputClase}`}
-          />
-        </label>
-        <label className="mt-4 flex items-center gap-3 text-sm text-cream-200">
-          <input
-            type="checkbox"
-            checked={form.estado}
-            onChange={(e) => setForm((f) => ({ ...f, estado: e.target.checked }))}
-            className="h-4 w-4 accent-gold-500"
-          />
-          Activo
-        </label>
-        {aviso && <p className="mt-4 text-sm text-amber-200">{aviso}</p>}
-        <button type="submit" disabled={enviando} className={`mt-5 w-full ${botonPrimario}`}>
-          Crear barbero
-        </button>
-      </form>
+
+        {serviciosDe && (
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {servicios.map((s) => {
+              const asignado = asignados.has(s.serviciosID)
+              return (
+                <button
+                  key={s.serviciosID}
+                  type="button"
+                  onClick={() => alternarServicio(s)}
+                  className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left transition ${
+                    asignado
+                      ? 'border-emerald-500/40 bg-emerald-500/10'
+                      : 'border-white/10 bg-ink-800 hover:border-gold-500/50'
+                  }`}
+                >
+                  <span className="text-sm text-cream-50">{s.nombre}</span>
+                  <span className="text-xs text-cream-200/50">{precio(s.precio)}</span>
+                  <span
+                    className={`text-xs uppercase tracking-wider ${
+                      asignado ? 'text-emerald-300' : 'text-cream-200/50'
+                    }`}
+                  >
+                    {asignado ? 'Asignado' : 'Asignar'}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

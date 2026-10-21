@@ -9,6 +9,7 @@ import AdminBarberos from './AdminBarberos'
 import AdminHorarios from './AdminHorarios'
 import AdminTransacciones from './AdminTransacciones'
 import AdminResenas from './AdminResenas'
+import AdminFeriados from './AdminFeriados'
 
 const pestanas = [
   'Resumen',
@@ -20,6 +21,7 @@ const pestanas = [
   'Horarios',
   'Reseñas',
   'Pagos',
+  'Días no laborables',
 ]
 
 export default function PanelAdmin() {
@@ -60,6 +62,7 @@ export default function PanelAdmin() {
           {pestana === 'Horarios' && <AdminHorarios />}
           {pestana === 'Reseñas' && <AdminResenas />}
           {pestana === 'Pagos' && <AdminTransacciones />}
+          {pestana === 'Días no laborables' && <AdminFeriados />}
         </div>
       </div>
     </div>

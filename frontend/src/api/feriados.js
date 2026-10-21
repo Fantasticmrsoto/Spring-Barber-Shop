@@ -10,3 +10,15 @@ export async function getFeriados() {
     feriados: data.feriados ?? [],
   }
 }
+
+// Registra un día no laborable (solo administrador).
+export async function crearFeriado({ fecha, nombre, tipo }) {
+  const { data } = await client.post('/api/feriados', { fecha, nombre, tipo })
+  return data.feriado
+}
+
+// Quita un día no laborable (solo administrador).
+export async function eliminarFeriado(fecha) {
+  const { data } = await client.delete(`/api/feriados/${fecha}`)
+  return data.feriado
+}

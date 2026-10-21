@@ -35,10 +35,13 @@ export async function getResenasBarbero(barberoID) {
 }
 
 // Crea o actualiza la reseña del usuario autenticado (exige una cita completada).
-export async function crearResenaBarbero(barberoID, { calificacion, comentario }) {
+// El administrador puede pasar `autorID` para dejar la reseña en nombre de un
+// cliente.
+export async function crearResenaBarbero(barberoID, { calificacion, comentario, autorID } = {}) {
   const { data } = await client.post(`/api/barberos/${barberoID}/resenas`, {
     calificacion,
     comentario,
+    ...(autorID ? { autorID } : {}),
   })
   return data.resena
 }
