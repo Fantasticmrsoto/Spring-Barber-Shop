@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import guia from '../assets/hero-placeholder.svg'
+import VideoHero from './VideoHero'
 
 export default function Hero() {
   return (
@@ -55,11 +55,7 @@ export default function Hero() {
 
         <div className="relative">
           <div className="absolute inset-0 -rotate-3 rounded-3xl border border-gold-500/30" />
-          <img
-            src={guia}
-            alt="Imagen de referencia"
-            className="relative h-56 w-full rounded-3xl object-cover shadow-2xl shadow-black/50 sm:h-80 md:h-[420px]"
-          />
+          <VideoHero className="h-56 w-full rounded-3xl shadow-2xl shadow-black/50 sm:h-80 md:h-[420px]" />
         </div>
       </div>
     </section>
