@@ -8,6 +8,7 @@
     "dev": "npm --prefix frontend run dev",
     "dev:api": "npm --prefix backend start",
     "migrate": "npm --prefix backend run migrate",
+    "admin:crear": "npm --prefix backend run admin:crear --",
     "build": "npm --prefix frontend run build",
     "lint": "npm --prefix frontend run lint"
   }

@@ -123,13 +123,23 @@ después es fácil (basta con quitar `VITE_API_URL`).
      ```
 
 5. Crea un **usuario administrador** para poder entrar al panel. Las migraciones
-   crean el esquema, pero no el primer usuario. Puedes hacerlo con la API:
+   crean el esquema, pero no el primer usuario.
+
+   Ojo: la API **no** deja crear un administrador por su cuenta. `POST
+   /api/usuarios` solo respeta el `rol` que le mandes si quien llama ya es
+   administrador; si no, responde `403 Solo un administrador puede crear
+   usuarios con ese rol`. Para el primer usuario hay que usar el script, que
+   va directo a la base de datos:
 
    ```bash
-   curl -X POST https://api.springbarbershop.com/api/usuarios \
-     -H "Content-Type: application/json" \
-     -d '{"nombre":"Administrador","apellido":"Spring","correo":"admin@springbarber.com","password":"TU_CONTRASENA","telefono":"3001234567","rol":"administrador"}'
+   DATABASE_URL="postgresql://..." npm run admin:crear -- \
+     --correo=admin@springbarber.com \
+     --clave=TU_CONTRASENA \
+     --telefono=3001234567
    ```
+
+   Si lo ejecutas desde el shell del servicio en Render, no hace falta pasar
+   `DATABASE_URL`: ya está en el entorno.
 
 ---
 

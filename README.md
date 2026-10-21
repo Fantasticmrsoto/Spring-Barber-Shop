@@ -73,6 +73,28 @@ que **subir el fichero nuevo**, no solo sustituir el contenido.
 Una foto subida desde el panel de administración manda siempre sobre la foto
 de referencia.
 
+## Cuentas de administrador
+
+Una cuenta de administrador se puede dar de alta desde el panel, pero para
+llegar al panel hace falta entrar, y para entrar hace falta una cuenta de
+administrador. Para ese caso está el script, que trabaja directamente con la
+base de datos y no necesita ninguna credencial previa:
+
+```bash
+npm run admin:crear -- --correo=admin@barberia.com --clave=miClave123
+```
+
+También admite `--nombre`, `--apellido`, `--telefono` y `--rol`. Si la cuenta
+ya existe, no falla: le cambia la clave y el rol, así que también sirve para
+recuperar el acceso.
+
+La clave se guarda como hash bcrypt, nunca en texto plano, igual que cuando se
+crea un usuario desde la web.
+
+**Cada entorno tiene su propia base de datos** (en local es PostgreSQL, en la
+nube es Neon), y una cuenta creada en uno no aparece en el otro: hay que
+ejecutar el script en cada uno.
+
 ## Abrir la web desde el móvil
 
 La web se sirve en `0.0.0.0:5173`, así que es accesible desde cualquier
