@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getBarberos } from '../api/barberos'
 import { mensajeDeError } from '../api/client'
-import { iniciales } from '../utils/formato'
+import { fotoBarbero } from '../utils/fotosBarbero'
 import ModalBarbero from './ModalBarbero'
 import { Estrellas } from './Estrellas'
 import {
@@ -58,23 +58,25 @@ export default function Barberos() {
               telefono,
               `Hola ${barbero.nombre}, quiero reservar una cita en Spring Barber Shop.`,
             )
+            // Foto de referencia para los barberos que no tienen foto subida.
+            const foto = fotoBarbero(barbero.barberoID)
             return (
               <article
                 key={barbero.barberoID}
                 onClick={() => setSeleccionado(barbero)}
                 className="flex cursor-pointer flex-col items-center rounded-2xl border border-white/10 bg-ink-800 p-5 text-center transition hover:border-gold-500/50 focus-within:border-gold-500/50 sm:p-6"
               >
-                {barbero.foto_url ? (
-                  <img
-                    src={urlImagen(barbero.foto_url)}
-                    alt={`${barbero.nombre} ${barbero.apellido}`}
-                    className="h-20 w-20 rounded-full object-cover ring-2 ring-gold-500/60"
-                  />
-                ) : (
-                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-gold-500 to-gold-700 font-display text-2xl font-bold text-ink-950">
-                    {iniciales(barbero.nombre, barbero.apellido)}
-                  </div>
-                )}
+                <img
+                  src={barbero.foto_url ? urlImagen(barbero.foto_url) : foto.src}
+                  srcSet={barbero.foto_url ? undefined : foto.srcSet}
+                  sizes="80px"
+                  alt={`${barbero.nombre} ${barbero.apellido}`}
+                  loading="lazy"
+                  decoding="async"
+                  width="80"
+                  height="80"
+                  className="h-20 w-20 rounded-full object-cover ring-2 ring-gold-500/60"
+                />
 
                 <h3 className="mt-4 font-display text-lg font-semibold uppercase tracking-wide">
                   {barbero.nombre} {barbero.apellido}

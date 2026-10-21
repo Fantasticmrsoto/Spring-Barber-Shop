@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getResenasBarbero, crearResenaBarbero } from '../api/barberos'
 import { mensajeDeError } from '../api/client'
-import { iniciales } from '../utils/formato'
+import { fotoBarbero } from '../utils/fotosBarbero'
 import { Estrellas, SelectorEstrellas } from './Estrellas'
 import { useAuth } from '../auth/useAuth'
 import {
@@ -27,6 +27,9 @@ export default function ModalBarbero({ barbero, onCerrar }) {
   const [enviando, setEnviando] = useState(false)
   const [aviso, setAviso] = useState(null)
   const [avisoError, setAvisoError] = useState(false)
+
+  // Foto de referencia para los barberos que no tienen foto subida.
+  const foto = fotoBarbero(barbero?.barberoID)
 
   // Cierra con Escape y bloquea el scroll de fondo mientras está abierto.
   useEffect(() => {
@@ -125,17 +128,17 @@ export default function ModalBarbero({ barbero, onCerrar }) {
           </button>
 
           <div className="flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
-            {barbero.foto_url ? (
-              <img
-                src={urlImagen(barbero.foto_url)}
-                alt={`${barbero.nombre} ${barbero.apellido}`}
-                className="h-24 w-24 shrink-0 rounded-full object-cover ring-2 ring-gold-500/60"
-              />
-            ) : (
-              <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold-500 to-gold-700 font-display text-3xl font-bold text-ink-950">
-                {iniciales(barbero.nombre, barbero.apellido)}
-              </div>
-            )}
+            <img
+              src={barbero.foto_url ? urlImagen(barbero.foto_url) : foto.src}
+              srcSet={barbero.foto_url ? undefined : foto.srcSet}
+              sizes="96px"
+              alt={`${barbero.nombre} ${barbero.apellido}`}
+              loading="lazy"
+              decoding="async"
+              width="96"
+              height="96"
+              className="h-24 w-24 shrink-0 rounded-full object-cover ring-2 ring-gold-500/60"
+            />
 
             <div className="min-w-0 flex-1">
               <div className="flex flex-col items-center gap-2 sm:flex-row sm:flex-wrap">

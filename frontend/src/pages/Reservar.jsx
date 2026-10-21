@@ -8,7 +8,8 @@ import { getFeriados } from '../api/feriados'
 import { getHorariosDeBarbero } from '../api/horarios'
 import { getOcupados, crearCita, crearCitaPublica, reprogramarCita } from '../api/citas'
 import { mensajeDeError } from '../api/client'
-import { precio, duracion, urlImagen, iniciales, DIAS_SEMANA, formatearFechaLarga } from '../utils/formato'
+import { precio, duracion, urlImagen, DIAS_SEMANA, formatearFechaLarga } from '../utils/formato'
+import { fotoBarbero } from '../utils/fotosBarbero'
 import { revisarFecha } from '../utils/calendario'
 import { enlaceWhatsApp } from '../config'
 import AppHeader from '../components/AppHeader'
@@ -479,6 +480,10 @@ export default function Reservar() {
     )
   }
 
+  // Foto de referencia del barbero elegido, para los que no tienen foto
+  // subida. Se calcula una vez y se reutiliza en el resumen.
+  const fotoBarberoActual = barbero ? fotoBarbero(barbero.barberoID) : null
+
   return (
     <div className="min-h-screen bg-ink-950">
       <AppHeader />
@@ -522,18 +527,18 @@ export default function Reservar() {
 
         {(esBarberoFijo || esServicioFijo) && (barbero || servicio) && (
           <div className="mt-6 flex items-center gap-4 rounded-2xl border border-gold-500/30 bg-gold-500/5 p-4">
-            {barbero &&
-              (barbero.foto_url ? (
-                <img
-                  src={urlImagen(barbero.foto_url)}
-                  alt={`${barbero.nombre} ${barbero.apellido}`}
-                  className="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-gold-500/50"
-                />
-              ) : (
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold-500 to-gold-700 font-display font-bold text-ink-950">
-                  {iniciales(barbero.nombre, barbero.apellido)}
-                </span>
-              ))}
+            {barbero && (
+              <img
+                src={barbero.foto_url ? urlImagen(barbero.foto_url) : fotoBarberoActual.src}
+                srcSet={barbero.foto_url ? undefined : fotoBarberoActual.srcSet}
+                sizes="48px"
+                alt={`${barbero.nombre} ${barbero.apellido}`}
+                decoding="async"
+                width="48"
+                height="48"
+                className="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-gold-500/50"
+              />
+            )}
             <div className="min-w-0">
               {barbero && (
                 <>
