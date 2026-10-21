@@ -55,6 +55,25 @@ jobs:
         working-directory: ./backend
         run: npm run migrate
 
+      # La colección E2E necesita un administrador para iniciar sesión: lo crea
+      # el seed. Sin este paso, el primer login de la suite (el del
+      # administrador sembrado) falla con 401 y no se puede ni crear un
+      # administrador de prueba.
+      #
+      # SEED_ADMIN_PASSWORD y SEED_BARBERO_PASSWORD fijan las contraseñas con las
+      # que se entra. El seed también las actualiza si la cuenta ya existía, así
+      # que el paso es determinista aunque la base no esté vacía.
+      #
+      # El barbero sembrado hace falta porque los últimos pasos de la suite
+      # comprueban que un barbero no puede tocar el horario ni los servicios de
+      # otro barbero.
+      - name: Sembrar datos iniciales
+        working-directory: ./backend
+        env:
+          SEED_ADMIN_PASSWORD: clave123
+          SEED_BARBERO_PASSWORD: clave123
+        run: npm run seed
+
       - name: Iniciar el backend
         working-directory: ./backend
         run: |
@@ -84,6 +103,8 @@ jobs:
           set -o pipefail
           npx --yes newman run "postman/My Collection.postman_collection.json" \
             --env-var "base_url=http://localhost:3000" \
+            --env-var "adminSemillaClave=clave123" \
+            --env-var "barberoSemillaClave=clave123" \
             --reporters cli \
             --color off 2>&1 | tee newman-report.txt
 
@@ -100,6 +121,8 @@ jobs:
             --legacy-peer-deps \
             newman run "postman/My Collection.postman_collection.json" \
             --env-var "base_url=http://localhost:3000" \
+            --env-var "adminSemillaClave=clave123" \
+            --env-var "barberoSemillaClave=clave123" \
             --reporters cli,html \
             --reporter-html-export newman-report.html \
             --color off > /dev/null 2>&1

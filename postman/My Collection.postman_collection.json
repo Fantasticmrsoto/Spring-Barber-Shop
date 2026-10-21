@@ -10,6 +10,26 @@
       "key": "base_url",
       "value": "http://localhost:3000",
       "type": "string"
+    },
+    {
+      "key": "adminSemillaCorreo",
+      "value": "admin@springbarber.com",
+      "type": "string"
+    },
+    {
+      "key": "adminSemillaClave",
+      "value": "clave123",
+      "type": "string"
+    },
+    {
+      "key": "barberoSemillaCorreo",
+      "value": "barbero@springbarber.com",
+      "type": "string"
+    },
+    {
+      "key": "barberoSemillaClave",
+      "value": "clave123",
+      "type": "string"
     }
   ],
   "event": [
@@ -49,7 +69,22 @@
           "const domingo = new Date(lunes);",
           "domingo.setDate(lunes.getDate() + 6);",
           "domingo.setHours(10, 0, 0, 0);",
-          "pm.environment.set('fechaDomingo', iso(domingo));"
+          "pm.environment.set('fechaDomingo', iso(domingo));",
+          "",
+          "// 12:00 y 14:00: horas libres del mismo lunes, para la reprogramación y",
+          "// para la reserva sin cuenta (la de 10:00 ya está ocupada).",
+          "const reprogramada = new Date(lunes);",
+          "reprogramada.setHours(12, 0, 0, 0);",
+          "pm.environment.set('fechaReprogramada', iso(reprogramada));",
+          "",
+          "const citaPublica = new Date(lunes);",
+          "citaPublica.setHours(14, 0, 0, 0);",
+          "pm.environment.set('fechaCitaPublica', iso(citaPublica));",
+          "",
+          "// 16:00: hora libre para la cita de invitado que hereda una cuenta nueva",
+          "const heredada = new Date(lunes);",
+          "heredada.setHours(16, 0, 0, 0);",
+          "pm.environment.set('fechaCitaHeredada', iso(heredada));"
         ]
       }
     }
@@ -88,9 +123,66 @@
       ]
     },
     {
+      "name": "01b · Login del administrador sembrado",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"correo\": \"{{adminSemillaCorreo}}\",\n  \"password\": \"{{adminSemillaClave}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/auth/login",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// La cuenta administradora la crea el seed (npm run seed). La colección",
+              "// la usa para las operaciones que solo puede hacer un administrador.",
+              "pm.test('el administrador sembrado puede iniciar sesión', () => {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('es un administrador', () => {",
+              "  pm.expect(json.usuario.rol).to.eql('administrador');",
+              "});",
+              "pm.environment.set('tokenAdmin', json.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "02 · Crear usuario administrador",
       "request": {
         "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        },
         "header": [
           {
             "key": "Content-Type",
@@ -1313,6 +1405,16 @@
       "name": "27 · ID no numérico",
       "request": {
         "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
         "header": [],
         "url": {
           "raw": "{{base_url}}/api/usuarios/abc",
@@ -1504,6 +1606,1204 @@
               "pm.test('una cita en domingo devuelve 400', () => { pm.response.to.have.status(400); });",
               "pm.test('el mensaje dice que es día de descanso', () => {",
               "  pm.expect(pm.response.json().message).to.include('día de descanso');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "32 · El registro público no puede crear administradores",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Escalador\",\n  \"apellido\": \"Malo\",\n  \"correo\": \"escalador_{{$timestamp}}{{$randomInt}}@barberia.com\",\n  \"telefono\": \"04120000001\",\n  \"clave\": \"clave123\",\n  \"rol\": \"administrador\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/usuarios",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "usuarios"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Sin sesión no se puede elegir el rol: el registro público siempre",
+              "// crea clientes. Sin esto, cualquiera se registraba como administrador.",
+              "pm.test('un registro sin token no puede pedir administrador: 403', () => {",
+              "  pm.response.to.have.status(403);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "33 · Listado de usuarios reservado al administrador",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenCliente}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/usuarios",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "usuarios"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// El listado trae el correo y el teléfono de todas las cuentas: no puede",
+              "// ser público.",
+              "pm.test('un cliente no ve el listado de usuarios: 403', () => {",
+              "  pm.response.to.have.status(403);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "34 · Horas ocupadas del barbero",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/citas/ocupados?barberoID={{barberoID}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "ocupados"
+          ],
+          "query": [
+            {
+              "key": "barberoID",
+              "value": "{{barberoID}}"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Es público: la web lo consulta antes de que el cliente inicie sesión.",
+              "pm.test('devuelve 200 sin token', () => { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('incluye la cita ya agendada', () => {",
+              "  const ocupada = json.ocupados.find(o => o.citaID === pm.environment.get('citaID'));",
+              "  pm.expect(ocupada).to.not.be.undefined;",
+              "  pm.expect(ocupada.fecha_inicio).to.be.a('string');",
+              "  pm.expect(ocupada.fecha_fin).to.be.a('string');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "35 · Reserva sin cuenta",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"barberoID\": {{barberoID}},\n  \"servicioID\": {{servicioID}},\n  \"fecha_hora\": \"{{fechaCitaPublica}}\",\n  \"nombre\": \"Invitado\",\n  \"apellido\": \"Prueba\",\n  \"telefono\": \"04141234567\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/citas/publica",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "publica"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('agenda la cita sin sesión con 201', () => { pm.response.to.have.status(201); });",
+              "const json = pm.response.json();",
+              "pm.test('nace como cita de invitado', () => {",
+              "  pm.expect(json.cita.es_invitado).to.be.true;",
+              "  pm.expect(json.cita.clienteID).to.be.null;",
+              "});",
+              "pm.test('devuelve el código para gestionarla', () => {",
+              "  pm.expect(json.codigo).to.be.a('string');",
+              "  pm.environment.set('codigoCitaPublica', json.codigo);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "36 · Consultar la cita por su código",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/citas/publica/{{codigoCitaPublica}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "publica",
+            "{{codigoCitaPublica}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('devuelve 200 con el código correcto', () => { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('muestra los datos de la reserva', () => {",
+              "  pm.expect(json.cita.contacto_nombre).to.eql('Invitado Prueba');",
+              "  pm.expect(json.cita.estado).to.eql('pendiente');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "37 · Cancelar la cita con su código",
+      "request": {
+        "method": "PUT",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/citas/publica/{{codigoCitaPublica}}/estado",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "publica",
+            "{{codigoCitaPublica}}",
+            "estado"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('cancela la cita con 200', () => { pm.response.to.have.status(200); });",
+              "pm.test('la cita queda cancelada', () => {",
+              "  pm.expect(pm.response.json().cita.estado).to.eql('cancelada');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "38 · Reprogramar una cita",
+      "request": {
+        "method": "PUT",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fecha_hora\": \"{{fechaReprogramada}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/citas/{{citaID}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "{{citaID}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('reprograma la cita con 200', () => { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('mueve la cita a la nueva hora', () => {",
+              "  const esperada = new Date(pm.environment.get('fechaReprogramada'));",
+              "  pm.expect(new Date(json.cita.fecha_inicio).getTime()).to.eql(esperada.getTime());",
+              "});",
+              "pm.test('no crea una cita nueva (sigue siendo la misma)', () => {",
+              "  pm.expect(json.cita.citaID).to.eql(pm.environment.get('citaID'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "39 · Reserva sin cuenta en una hora ocupada",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"barberoID\": {{barberoID}},\n  \"servicioID\": {{servicioID}},\n  \"fecha_hora\": \"{{fechaReprogramada}}\",\n  \"nombre\": \"Invitado\",\n  \"apellido\": \"Solapado\",\n  \"telefono\": \"04141234567\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/citas/publica",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "publica"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('una reserva que se cruza con otra devuelve 400', () => {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "pm.test('el mensaje habla del solapamiento', () => {",
+              "  pm.expect(pm.response.json().message).to.include('se cruza');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "40 · El cliente cancela su propia cita",
+      "request": {
+        "method": "PUT",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenCliente}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"estado\": \"cancelada\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/citas/{{citaID}}/estado",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "{{citaID}}",
+            "estado"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// El botón \"Cancelar\" de \"Mis citas\" llama a esta ruta: sin esta",
+              "// excepción el cliente solo podía recibir un 403.",
+              "pm.test('el cliente cancela su propia cita con 200', () => {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('la cita queda cancelada', () => {",
+              "  pm.expect(pm.response.json().cita.estado).to.eql('cancelada');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "41 · Cancelar dos veces la cita pública",
+      "request": {
+        "method": "PUT",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/citas/publica/{{codigoCitaPublica}}/estado",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "publica",
+            "{{codigoCitaPublica}}",
+            "estado"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('una cita ya cancelada no se puede volver a cancelar: 400', () => {",
+              "  pm.response.to.have.status(400);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "42 · Código de cita inexistente",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/citas/publica/no-existe-este-codigo",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "publica",
+            "no-existe-este-codigo"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('un código desconocido devuelve 404', () => { pm.response.to.have.status(404); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "43 · Login del barbero sembrado",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/auth/login",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"correo\": \"{{barberoSemillaCorreo}}\",\n  \"password\": \"{{barberoSemillaClave}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// La cuenta de barbero la crea el seed (npm run seed). Se usa para",
+              "// comprobar que un barbero no puede tocar los datos de otro barbero.",
+              "pm.test('el barbero sembrado puede iniciar sesión', () => {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('es un barbero', () => {",
+              "  pm.expect(json.usuario.rol).to.eql('barbero');",
+              "});",
+              "pm.environment.set('tokenBarbero', json.token);",
+              "pm.environment.set('usuarioBarberoID', json.usuario.usuarioID);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "44 · Ficha del barbero sembrado",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/barberos",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "barberos"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// El ID del barbero cambia según el seed y el orden de los INSERT, así que",
+              "// se localiza su ficha por el usuario con el que se acaba de iniciar sesión.",
+              "pm.test('devuelve 200', () => { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "const usuarioID = pm.environment.get('usuarioBarberoID');",
+              "const ficha = json.barberos.find(b => b.usuarioID === usuarioID);",
+              "pm.test('encuentra la ficha del barbero con el que se inició sesión', () => {",
+              "  pm.expect(ficha).to.not.be.undefined;",
+              "});",
+              "pm.environment.set('barberoSemillaID', ficha.barberoID);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "45 · Un barbero no puede cambiar el horario de otro",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/horarios",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "horarios"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenBarbero}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"barberoID\": {{barberoID}},\n  \"dia_semana\": \"lunes\",\n  \"hora_inicio\": \"09:00\",\n  \"hora_fin\": \"17:00\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// El barbero del ejemplo es el creado por la propia suite ({{barberoID}}).",
+              "// Antes de la corrección, un barbero podía cambiar el horario de cualquiera.",
+              "pm.test('un barbero no puede tocar el horario de otro: 403', () => {",
+              "  pm.response.to.have.status(403);",
+              "});",
+              "pm.test('el mensaje explica que es su propio horario', () => {",
+              "  pm.expect(pm.response.json().message).to.include('tu propio horario');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "46 · Un barbero sí puede cambiar el suyo",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/horarios",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "horarios"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenBarbero}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"barberoID\": {{barberoSemillaID}},\n  \"dia_semana\": \"lunes\",\n  \"hora_inicio\": \"09:00\",\n  \"hora_fin\": \"17:00\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// El control de propiedad no puede cerrar la puerta al propio barbero.",
+              "pm.test('un barbero puede guardar su propio horario: 201', () => {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "pm.test('el horario guardado es el suyo', () => {",
+              "  pm.expect(pm.response.json().horario.barberoID).to.eql(pm.environment.get('barberoSemillaID'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "47 · Un barbero no puede asignar servicios a otro",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/barbero-servicios",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "barbero-servicios"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenBarbero}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"barberoID\": {{barberoID}},\n  \"servicioID\": {{servicioID}}\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// El servicio ya está asignado a {{barberoID}} (paso 13 de la suite), así que",
+              "// sin el control de propiedad esta respuesta sería un 400 de \"ya tiene",
+              "// asignado este servicio\" en lugar de un 403.",
+              "pm.test('un barbero no puede tocar los servicios de otro: 403', () => {",
+              "  pm.response.to.have.status(403);",
+              "});",
+              "pm.test('el mensaje explica que es su propia ficha', () => {",
+              "  pm.expect(pm.response.json().message).to.include('tu propia ficha');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "48 · Un barbero sí puede asignarse un servicio",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/barbero-servicios",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "barbero-servicios"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenBarbero}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"barberoID\": {{barberoSemillaID}},\n  \"servicioID\": {{servicioID}}\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('un barbero puede asignarse un servicio: 201', () => {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "pm.test('la asignación es de su ficha', () => {",
+              "  pm.expect(pm.response.json().asignacion.barberoID).to.eql(pm.environment.get('barberoSemillaID'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "49 · Usuario para probar la recuperación",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/usuarios",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "usuarios"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Recuperable\",\n  \"apellido\": \"Prueba\",\n  \"correo\": \"recuperable_{{$timestamp}}{{$randomInt}}@barberia.com\",\n  \"telefono\": \"04121234567\",\n  \"clave\": \"clave123\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// La recuperación de contraseña necesita una cuenta con correo y",
+              "// teléfono conocidos: se crea una sola para esta prueba.",
+              "pm.test('crea el usuario con 201', () => { pm.response.to.have.status(201); });",
+              "const json = pm.response.json();",
+              "pm.environment.set('recuperacionCorreo', json.usuario.correo);",
+              "pm.test('sin rol en el cuerpo, la cuenta nace de tipo cliente', () => {",
+              "  pm.expect(json.usuario.rol).to.eql('cliente');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "50 · Recuperar la contraseña",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/auth/recuperar",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "recuperar"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"correo\": \"{{recuperacionCorreo}}\",\n  \"telefono\": \"04121234567\",\n  \"claveNueva\": \"claveNueva456\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// La página \"Recuperar contraseña\" llama a esta ruta. Antes de",
+              "// implementarla devolvía 404 y el formulario no hacía nada.",
+              "pm.test('recupera la contraseña con 200', () => { pm.response.to.have.status(200); });",
+              "pm.test('confirma que la contraseña quedó actualizada', () => {",
+              "  pm.expect(pm.response.json().message).to.include('actualizada');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "51 · Entrar con la contraseña nueva",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/auth/login",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"correo\": \"{{recuperacionCorreo}}\",\n  \"password\": \"claveNueva456\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('se puede iniciar sesión con la contraseña nueva', () => {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "52 · La contraseña antigua ya no sirve",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/auth/login",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"correo\": \"{{recuperacionCorreo}}\",\n  \"password\": \"clave123\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('la contraseña anterior queda invalidada: 401', () => {",
+              "  pm.response.to.have.status(401);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "53 · Recuperar con un teléfono que no es el de la cuenta",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/auth/recuperar",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "recuperar"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"correo\": \"{{recuperacionCorreo}}\",\n  \"telefono\": \"0000000000\",\n  \"claveNueva\": \"claveNueva456\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Con un teléfono que no es el de la cuenta, la recuperación falla.",
+              "pm.test('un teléfono incorrecto devuelve 404', () => { pm.response.to.have.status(404); });",
+              "pm.test('el mensaje no revela si el correo existe', () => {",
+              "  pm.expect(pm.response.json().message).to.include('no coinciden');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "54 · Recuperar con una contraseña demasiado corta",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/auth/recuperar",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "recuperar"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"correo\": \"{{recuperacionCorreo}}\",\n  \"telefono\": \"04121234567\",\n  \"claveNueva\": \"123\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('una clave de menos de 6 caracteres devuelve 400', () => {",
+              "  pm.response.to.have.status(400);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "55 · Reserva sin cuenta que luego se hereda",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/citas/publica",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "publica"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"barberoID\": {{barberoID}},\n  \"servicioID\": {{servicioID}},\n  \"fecha_hora\": \"{{fechaCitaHeredada}}\",\n  \"nombre\": \"Herencia\",\n  \"apellido\": \"Probada\",\n  \"telefono\": \"04241234567\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Reserva de invitado con un teléfono propio: es la cita que la cuenta",
+              "// del paso siguiente debe heredar.",
+              "pm.test('agenda la cita sin sesión con 201', () => { pm.response.to.have.status(201); });",
+              "const json = pm.response.json();",
+              "pm.test('nace como cita de invitado', () => {",
+              "  pm.expect(json.cita.es_invitado).to.be.true;",
+              "  pm.expect(json.cita.clienteID).to.be.null;",
+              "});",
+              "pm.environment.set('codigoCitaHeredada', json.codigo);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "56 · El registro hereda las citas de invitado",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/usuarios",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "usuarios"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Herencia\",\n  \"apellido\": \"Probada\",\n  \"correo\": \"herencia_{{$timestamp}}{{$randomInt}}@barberia.com\",\n  \"telefono\": \"04241234567\",\n  \"clave\": \"clave123\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Alta sin token (es el registro público) con el MISMO teléfono con el que",
+              "// se reservó en el paso anterior.",
+              "pm.test('crea la cuenta con 201', () => { pm.response.to.have.status(201); });",
+              "const json = pm.response.json();",
+              "pm.environment.set('usuarioHeredadoID', json.usuario.usuarioID);",
+              "pm.test('la cita de invitado pasa a la cuenta nueva', () => {",
+              "  pm.expect(json.citasVinculadas).to.be.at.least(1);",
+              "});",
+              "pm.environment.set('heredadoCorreo', json.usuario.correo);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "57 · Entrar con la cuenta recién creada",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/auth/login",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"correo\": \"{{heredadoCorreo}}\",\n  \"password\": \"clave123\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('inicia sesión con 200', () => { pm.response.to.have.status(200); });",
+              "pm.environment.set('tokenHeredado', pm.response.json().token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "58 · La cita heredada aparece en \"Mis citas\"",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/citas",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenHeredado}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Es lo que ve el cliente en \"Mis citas\": la cita que hizo de invitado",
+              "// ya está en su agenda y con su nombre, no como cita de invitado.",
+              "pm.test('devuelve 200', () => { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "const codigo = pm.environment.get('codigoCitaHeredada');",
+              "const cita = json.citas.find(c => c.codigo === codigo);",
+              "pm.test('la cita heredada está en su agenda', () => {",
+              "  pm.expect(cita).to.not.be.undefined;",
+              "});",
+              "pm.test('ya no es una cita de invitado', () => {",
+              "  pm.expect(cita.es_invitado).to.be.false;",
+              "  pm.expect(cita.clienteID).to.eql(pm.environment.get('usuarioHeredadoID'));",
               "});"
             ]
           }
