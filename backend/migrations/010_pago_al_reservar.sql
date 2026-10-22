@@ -45,7 +45,7 @@ $$
 
         ALTER TABLE public.cita
             ADD CONSTRAINT cita_estado_check
-                CHECK (estado IN ('pendiente', 'confirmada', 'completada', 'cancelada', 'denegada'));
+                CHECK (estado IN ('pendiente', 'confirmada', 'completada', 'cancelada', 'denegada', 'cancelacion_solicitada'));
     END
 $$;
 
@@ -76,4 +76,22 @@ $$
     END
 $$;
 
+-- 3. Solicitudes de cancelación con reembolso
+DO
+$$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'cita' AND column_name = 'cancelacion_motivo'
+        ) THEN
+            ALTER TABLE public.cita ADD COLUMN cancelacion_motivo text;
+            ALTER TABLE public.cita ADD COLUMN cancelacion_solicitada_en timestamp without time zone;
+            ALTER TABLE public.cita ADD COLUMN cancelacion_reembolsada boolean DEFAULT false;
+            ALTER TABLE public.cita ADD COLUMN cancelacion_reembolsada_en timestamp without time zone;
+            ALTER TABLE public.cita ADD COLUMN cancelacion_rechazada_motivo text;
+        END IF;
+    END
+$$;
+
 COMMIT;
+

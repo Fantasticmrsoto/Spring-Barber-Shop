@@ -8,9 +8,12 @@ const {
   obtenerCitaPublica,
   cancelarCitaPublica,
   reprogramarCita,
-  actualizarEstadoCita
+  actualizarEstadoCita,
+  solicitarCancelacionCita,
+  confirmarReembolsoCita,
+  rechazarCancelacionCita,
 } = require('../controllers/citaController');
-const { verificarToken } = require('../middlewares/authMiddleware');
+const { verificarToken, verificarRol } = require('../middlewares/authMiddleware');
 const { subirArchivo } = require('../config/subidas');
 
 /*
@@ -59,13 +62,15 @@ router.get('/', verificarToken, obtenerCitas);
 router.post('/', verificarToken, subirArchivo.single('comprobante'), crearCita);
 
 // Cambiar el estado de una cita.
-// Los permisos se comprueban en el controlador: el administrador puede cambiar
-// cualquier estado, el barbero solo los de su agenda y el cliente solo puede
-// cancelar sus propias citas.
 router.put('/:id/estado', verificarToken, actualizarEstadoCita);
+// Solicitar cancelación con reembolso (cliente/barbero/admin)
+router.post('/:id/cancelar-solicitud', verificarToken, solicitarCancelacionCita);
+// Confirmar/rechazar reembolso (solo administrador)
+router.put('/:id/reembolso/confirmar', verificarToken, verificarRol(['administrador']), confirmarReembolsoCita);
+router.put('/:id/reembolso/rechazar', verificarToken, verificarRol(['administrador']), rechazarCancelacionCita);
 
-// Reprogramar una cita (cambiar su fecha y hora). Las rutas de `publica` se
-// han declarado antes que `/:id` para que Express no las confunda.
+// Reprogramar una cita
 router.put('/:id', verificarToken, reprogramarCita);
+
 
 module.exports = router;

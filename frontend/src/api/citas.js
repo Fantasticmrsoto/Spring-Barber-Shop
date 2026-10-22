@@ -60,6 +60,22 @@ export async function reprogramarCita(citaID, { fecha_hora }) {
   return data.cita
 }
 
+export async function solicitarCancelacionCita(id, motivo) {
+  const { data } = await client.post(`/api/citas/${id}/cancelar-solicitud`, { motivo })
+  return data.cita
+}
+
+export async function confirmarReembolsoCita(id) {
+  const { data } = await client.put(`/api/citas/${id}/reembolso/confirmar`)
+  return data.cita
+}
+
+export async function rechazarCancelacionCita(id, motivo) {
+  const { data } = await client.put(`/api/citas/${id}/reembolso/rechazar`, { motivo })
+  return data.cita
+}
+
+
 // Reserva pública (sin sesión). Devuelve { cita, codigo } — el codigo permite ver y
 // cancelar la cita sin cuenta.
 export async function crearCitaPublica(payload) {

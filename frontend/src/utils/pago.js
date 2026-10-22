@@ -66,6 +66,7 @@ export const ESTADOS_CITA = {
   completada: { label: 'Completada', clase: 'bg-emerald-500/15 text-emerald-300' },
   cancelada: { label: 'Cancelada', clase: 'bg-red-500/15 text-red-300' },
   denegada: { label: 'Denegada', clase: 'bg-red-500/15 text-red-300' },
+  cancelacion_solicitada: { label: 'Cancelación solicitada', clase: 'bg-orange-500/15 text-orange-300' },
 }
 
 /*

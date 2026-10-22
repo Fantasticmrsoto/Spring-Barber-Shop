@@ -14,7 +14,7 @@ const {
 // "denegada" la pone el administrador cuando rechaza el comprobante de un
 // pago móvil: no es lo mismo que "cancelada", que es el cliente quien
 // cancela su cita.
-const ESTADOS_VALIDOS = ['pendiente', 'confirmada', 'completada', 'cancelada', 'denegada'];
+const ESTADOS_VALIDOS = ['pendiente', 'confirmada', 'completada', 'cancelada', 'denegada', 'cancelacion_solicitada'];
 
 // Error de negocio con código HTTP, para diferenciarlo de un fallo de PostgreSQL
 const errorHttp = (status, message) => {
@@ -311,7 +311,7 @@ const validarCita = async (client, {
     `SELECT "citaID", fecha_inicio, fecha_fin
      FROM cita
      WHERE "barberoID" = $1
-       AND estado NOT IN ('cancelada', 'denegada')
+       AND estado NOT IN ('cancelada', 'denegada', 'cancelacion_solicitada')
        AND fecha_inicio < $3
        AND fecha_fin   > $2${filtroCruce}`,
     paramsCruce
@@ -801,7 +801,7 @@ const reprogramarCita = async (req, res) => {
 
     const cita = actual.rows[0];
 
-    if (['cancelada', 'denegada', 'completada'].includes(cita.estado)) {
+    if (['cancelada', 'denegada', 'completada', 'cancelacion_solicitada'].includes(cita.estado)) {
       return res.status(400).json({
         ok: false,
         message: 'Esta cita ya no se puede reprogramar'
@@ -942,8 +942,154 @@ const actualizarEstadoCita = async (req, res) => {
       message: 'Estado de cita actualizado',
       cita: resultado.rows[0]
     });
+// 9b. Solicitar cancelación de cita (cliente o admin)
+// El espacio queda libre inmediatamente; se envía solicitud de reembolso al admin.
+const solicitarCancelacionCita = async (req, res) => {
+  const { id } = req.params;
+  const { motivo } = req.body || {};
+
+  const citaId = Number(id);
+  if (!Number.isInteger(citaId) || citaId <= 0) {
+    return res.status(400).json({
+      ok: false,
+      message: 'El ID de la cita debe ser un número entero válido',
+    });
+  }
+
+  const rol = req.usuario?.rol;
+  const usuarioId = req.usuario?.usuarioID;
+
+  try {
+    const actual = await db.query(
+      `SELECT c."citaID", c."clienteID", c.estado, b."usuarioID" AS barbero_usuarioID
+       FROM cita c
+       JOIN barbero b ON b."barberoID" = c."barberoID"
+       WHERE c."citaID" = $1`,
+      [citaId],
+    );
+
+    if (actual.rows.length === 0) {
+      return res.status(404).json({ ok: false, message: 'Cita no encontrada' });
+    }
+
+    const cita = actual.rows[0];
+
+    if (cita.estado === 'cancelacion_solicitada') {
+      return res.status(400).json({ ok: false, message: 'Ya hay una solicitud de cancelación pendiente' });
+    }
+
+    if (['cancelada', 'completada', 'denegada'].includes(cita.estado)) {
+      return res.status(400).json({ ok: false, message: 'Esta cita no se puede cancelar' });
+    }
+
+    if (rol === 'cliente') {
+      if (cita.clienteID !== usuarioId) {
+        return res.status(403).json({ ok: false, message: 'Solo puedes cancelar tus propias citas' });
+      }
+    } else if (rol === 'barbero') {
+      if (cita.barbero_usuarioID !== usuarioId) {
+        return res.status(403).json({ ok: false, message: 'Solo puedes cancelar las citas de tu agenda' });
+      }
+    }
+
+    const motivoTexto = typeof motivo === 'string' ? motivo.trim() : null;
+    await db.query(
+      `UPDATE cita
+       SET estado = 'cancelacion_solicitada',
+           cancelacion_motivo = $2,
+           cancelacion_solicitada_en = NOW(),
+           cancelacion_reembolsada = false,
+           cancelacion_rechazada_motivo = NULL
+       WHERE "citaID" = $1`,
+      [citaId, motivoTexto],
+    );
+
+    const completa = await db.query(`${SELECT_CITA} WHERE c."citaID" = $1`, [citaId]);
+    res.json({
+      ok: true,
+      message: 'Solicitud de cancelación enviada. El administrador debe confirmar el reembolso para cancelar la cita.',
+      cita: completa.rows[0],
+    });
   } catch (error) {
-    errorInterno(res, error, 'Actualizar Estado Cita');
+    errorInterno(res, error, 'Solicitar Cancelacion Cita');
+  }
+};
+
+// 9c. Confirmar reembolso (solo administrador) -> cancela la cita
+const confirmarReembolsoCita = async (req, res) => {
+  const { id } = req.params;
+  const citaId = Number(id);
+
+  if (!Number.isInteger(citaId) || citaId <= 0) {
+    return res.status(400).json({ ok: false, message: 'El ID de la cita debe ser un número entero válido' });
+  }
+
+  try {
+    const actual = await db.query('SELECT "citaID", estado FROM cita WHERE "citaID" = $1', [citaId]);
+    if (actual.rows.length === 0) {
+      return res.status(404).json({ ok: false, message: 'Cita no encontrada' });
+    }
+    if (actual.rows[0].estado !== 'cancelacion_solicitada') {
+      return res.status(400).json({ ok: false, message: 'Esta cita no tiene una solicitud de cancelación pendiente' });
+    }
+
+    await db.query(
+      `UPDATE cita
+       SET estado = 'cancelada',
+           cancelacion_reembolsada = true,
+           cancelacion_reembolsada_en = NOW()
+       WHERE "citaID" = $1`,
+      [citaId],
+    );
+
+    const completa = await db.query(`${SELECT_CITA} WHERE c."citaID" = $1`, [citaId]);
+    res.json({
+      ok: true,
+      message: 'Reembolso confirmado. La cita ha sido cancelada.',
+      cita: completa.rows[0],
+    });
+  } catch (error) {
+    errorInterno(res, error, 'Confirmar Reembolso Cita');
+  }
+};
+
+// 9d. Rechazar solicitud de cancelación (solo administrador) -> vuelve al estado anterior
+const rechazarCancelacionCita = async (req, res) => {
+  const { id } = req.params;
+  const { motivo } = req.body || {};
+  const citaId = Number(id);
+
+  if (!Number.isInteger(citaId) || citaId <= 0) {
+    return res.status(400).json({ ok: false, message: 'El ID de la cita debe ser un número entero válido' });
+  }
+
+  try {
+    const actual = await db.query('SELECT "citaID", estado FROM cita WHERE "citaID" = $1', [citaId]);
+    if (actual.rows.length === 0) {
+      return res.status(404).json({ ok: false, message: 'Cita no encontrada' });
+    }
+    if (actual.rows[0].estado !== 'cancelacion_solicitada') {
+      return res.status(400).json({ ok: false, message: 'Esta cita no tiene una solicitud de cancelación pendiente' });
+    }
+
+    const motivoTexto = typeof motivo === 'string' ? motivo.trim() : null;
+    // Volver a pendiente si no hay otra info; lo más simple es volver a pendiente
+    await db.query(
+      `UPDATE cita
+       SET estado = 'pendiente',
+           cancelacion_rechazada_motivo = $2
+       WHERE "citaID" = $1`,
+      [citaId, motivoTexto],
+    );
+
+    const completa = await db.query(`${SELECT_CITA} WHERE c."citaID" = $1`, [citaId]);
+    res.json({
+      ok: true,
+      message: 'Solicitud de cancelación rechazada.',
+      cita: completa.rows[0],
+    });
+  } catch (error) {
+    errorInterno(res, error, 'Rechazar Cancelacion Cita');
   }
 };
 
@@ -955,5 +1101,8 @@ module.exports = {
   obtenerCitaPublica,
   cancelarCitaPublica,
   reprogramarCita,
-  actualizarEstadoCita
+  actualizarEstadoCita,
+  solicitarCancelacionCita,
+  confirmarReembolsoCita,
+  rechazarCancelacionCita,
 };

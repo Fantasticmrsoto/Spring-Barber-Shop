@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { cambiarEstadoCita, reprogramarCita } from '../api/citas'
+import { cambiarEstadoCita, reprogramarCita, solicitarCancelacionCita, confirmarReembolsoCita, rechazarCancelacionCita } from '../api/citas'
 import { mensajeDeError } from '../api/client'
 import { fechaHora, aInputFechaHora, precio, nombreCliente } from '../utils/formato'
 import { ESTADOS_CITA, mensajeDenegacion } from '../utils/pago'
@@ -8,7 +8,7 @@ import EstadoPagoBadge from './EstadoPagoBadge'
 
 const ESTADOS = ESTADOS_CITA
 
-const FILTROS = ['todas', 'pendiente', 'confirmada', 'completada', 'cancelada', 'denegada']
+const FILTROS = ['todas', 'pendiente', 'confirmada', 'completada', 'cancelada', 'denegada', 'cancelacion_solicitada']
 
 const SIGUIENTES = {
   pendiente: ['confirmada', 'cancelada'],
@@ -16,6 +16,7 @@ const SIGUIENTES = {
   completada: [],
   cancelada: [],
   denegada: [],
+  cancelacion_solicitada: [],
 }
 
 const ETIQUETA = {
@@ -322,7 +323,7 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
                         Reprogramar
                       </button>
                     )}
-                    {modo === 'cliente' && <AccionesClienteCita cita={cita} />}
+                    {modo === 'cliente' && <AccionesClienteCita cita={cita} onCambio={onCambio} setError={setError} />}
                   </div>
                 )}
 
