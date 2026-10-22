@@ -515,6 +515,61 @@ Ese código es la **única** forma de volver a la cita sin cuenta, y da acceso a
 Solo se puede cancelar una cita que siga `pendiente` o `confirmada`: una cita
 completada o ya cancelada devuelve `400`. Un código que no existe devuelve `404`.
 
+### Forma de pago al reservar
+
+Al reservar, el cliente elige **cómo va a pagar**. Las dos rutas de reserva
+(`POST /api/citas` y `POST /api/citas/publica`) aceptan las dos formas:
+
+- **Pago móvil**: el cliente sube el comprobante del pago (una imagen) y escribe
+  su referencia. La cita se agenda **esperando el visto bueno** del
+  administrador: el comprobante llega a la pestaña de Pagos del panel y, si el
+  administrador lo aprueba, la cita sigue su curso normal (queda confirmada); si
+  lo rechaza, la cita queda **denegada** y el cliente ve el motivo.
+- **Efectivo o tarjeta**: la cita se agenda normal y se queda con la etiqueta de
+  **pago pendiente** hasta que se cobre en el local.
+
+```jsonc
+// POST /api/citas/publica  (JSON, pago en el local)
+{ "barberoID": 1, "servicioID": 1, "fecha_hora": "2026-10-05T10:00:00",
+  "nombre": "Ada", "apellido": "Lovelace", "telefono": "04141234567",
+  "pago_metodo": "efectivo" }
+
+// POST /api/citas/publica  (multipart, pago móvil)
+//   barberoID, servicioID, fecha_hora, nombre, apellido, telefono,
+//   pago_metodo=pago_movil, referencia_pago y comprobante (archivo)
+```
+
+| Campo | Notas |
+|---|---|
+| `pago_metodo` | `efectivo`, `tarjeta` o `pago_movil`. Si no viene, la cita se agenda sin método de pago |
+| `referencia_pago` | Obligatoria si el método es `pago_movil` |
+| `comprobante` | Archivo (multipart, campo `comprobante`). Obligatorio si el método es `pago_movil` |
+
+Cuando el pago es por móvil, la cita y su comprobante se guardan **en la misma
+transacción de base de datos**: o quedan los dos, o no queda ninguno.
+
+**La cita guarda su pago.** Tres columnas nuevas (migración 010) dejan la etiqueta
+guardada en la base de datos, para que no dependa de que haya o no una fila en
+`transacciones`:
+
+| Campo | Qué es |
+|---|---|
+| `pago_metodo` | `efectivo`, `tarjeta` o `pago_movil` (o `null` si no se eligió) |
+| `pago_estado` | `pendiente`, `completado` o `rechazado` (o `null`) |
+| `motivo_pago` | El motivo con el que el administrador denegó el pago |
+
+```jsonc
+// GET /api/citas — una cita con su pago
+{ "citaID": 9, "estado": "pendiente",
+  "pago_metodo": "pago_movil", "pago_estado": "pendiente", "motivo_pago": null }
+```
+
+| Error | Cuándo |
+|---|---|
+| `400` | El pago móvil viene sin comprobante |
+| `400` | El pago móvil viene sin referencia |
+| `400` | El método de pago no es uno de los tres |
+
 ### Horas ocupadas (público)
 
 `GET /api/citas/ocupados?barberoID=1` devuelve los intervalos ya reservados de
@@ -551,13 +606,26 @@ cita `cancelada` o `completada` no se reprograma (`400`).
 ### Estados de una cita
 
 `pendiente` → `confirmada` → `completada`, o → `cancelada` en cualquier momento.
-**El servidor no impone el orden**: acepta cualquiera de los cuatro. La validación
+**El servidor no impone el orden**: acepta cualquiera de los cinco. La validación
 vive en el frontend.
 
 ```jsonc
 // PUT /api/citas/:id/estado
 { "estado": "confirmada" }
 ```
+
+| Estado | Qué significa |
+|---|---|
+| `pendiente` | Agendada, sin confirmar |
+| `confirmada` | Confirmada (también cuando el administrador aprueba el pago móvil) |
+| `completada` | Ya se hizo el servicio |
+| `cancelada` | La canceló el cliente, el barbero o el administrador |
+| `denegada` | **El administrador denegó el comprobante de pago** (estado nuevo, migración 010) |
+
+`denegada` es distinta de `cancelada` a propósito: la cita no se canceló, se le
+**rechazó el pago**. Por eso guarda además el `motivo_pago`, que es el mensaje que
+ve el cliente. Una cita `denegada` no bloquea la agenda del barbero (no cuenta
+como ocupado) y no se puede reprogramar.
 
 Quién puede cambiar el estado:
 
@@ -670,6 +738,30 @@ el administrador lo apruebe (`PUT /:id/aprobar`) o lo rechace
 
 Un `cliente` solo puede registrar el pago de **sus propias citas**: si la cita es
 de otro, la respuesta es `403`.
+
+### Revisar el comprobante (el botón verde y el rojo)
+
+Los dos botones de la pestaña **Pagos** del panel del administrador son estas dos
+rutas. Cuando la transacción es un pago de cita, el efecto cae también sobre la
+cita:
+
+| Botón | Ruta | Qué pasa con la transacción | Qué pasa con la cita |
+|---|---|---|---|
+| Verde · **Aprobar** | `PUT /api/transacciones/:id/aprobar` | `estado` → `completado`, se borra el motivo de rechazo | `pago_estado` → `completado`, `motivo_pago` → `null` y, si estaba `pendiente`, la cita pasa a `confirmada` |
+| Rojo · **Rechazar** | `PUT /api/transacciones/:id/rechazar` | `estado` → `rechazado`, guarda `motivo` | `pago_estado` → `rechazado`, `motivo_pago` → el motivo y la cita pasa a `denegada` |
+
+```jsonc
+// PUT /api/transacciones/3/rechazar
+{ "motivo": "El comprobante no se ve" }
+```
+
+Una cita ya `completada` o `cancelada` no cambia de estado: el pago se registra
+igual, pero la cita se queda como estaba. La lógica está compartida en
+`backend/src/utils/pagos.js` (`aprobarPagoCita` y `rechazarPagoCita`).
+
+**El motivo es el mensaje del cliente.** No se manda ningún correo: el motivo se
+guarda en la cita y el cliente lo ve en "Mis citas" y en la página pública de su
+cita (la que abre con su código).
 
 ### Movimiento de saldo
 

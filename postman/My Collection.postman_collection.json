@@ -81,6 +81,25 @@
           "citaPublica.setHours(14, 0, 0, 0);",
           "pm.environment.set('fechaCitaPublica', iso(citaPublica));",
           "",
+          "// 09:00, 11:00, 13:00 y 15:00: horas libres del mismo lunes para las",
+          "// pruebas del pago al reservar (efectivo, comprobante aprobado, falta de",
+          "// comprobante y comprobante rechazado).",
+          "const pagoEfectivo = new Date(lunes);",
+          "pagoEfectivo.setHours(9, 0, 0, 0);",
+          "pm.environment.set('fechaCitaPagoEfectivo', iso(pagoEfectivo));",
+          "",
+          "const pagoMovil = new Date(lunes);",
+          "pagoMovil.setHours(11, 0, 0, 0);",
+          "pm.environment.set('fechaCitaPagoMovil', iso(pagoMovil));",
+          "",
+          "const pagoSinComprobante = new Date(lunes);",
+          "pagoSinComprobante.setHours(13, 0, 0, 0);",
+          "pm.environment.set('fechaCitaPagoSinComprobante', iso(pagoSinComprobante));",
+          "",
+          "const pagoRechazado = new Date(lunes);",
+          "pagoRechazado.setHours(15, 0, 0, 0);",
+          "pm.environment.set('fechaCitaPagoRechazado', iso(pagoRechazado));",
+          "",
           "// 16:00: hora libre para la cita de invitado que hereda una cuenta nueva",
           "const heredada = new Date(lunes);",
           "heredada.setHours(16, 0, 0, 0);",
@@ -2835,7 +2854,7 @@
               "key": "foto",
               "type": "file",
               "src": [
-                "../frontend/src/assets/logo-spring.jpg"
+                "frontend/src/assets/logo-spring.jpg"
               ]
             }
           ]
@@ -2916,6 +2935,639 @@
               "const json = pm.response.json();",
               "pm.test('deja la foto vacía', () => {",
               "  pm.expect(json.barbero.foto_url).to.eql(null);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "61 · Reservar con pago móvil (comprobante)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "barberoID",
+              "value": "{{barberoID}}",
+              "type": "text"
+            },
+            {
+              "key": "servicioID",
+              "value": "{{servicioID}}",
+              "type": "text"
+            },
+            {
+              "key": "fecha_hora",
+              "value": "{{fechaCitaPagoMovil}}",
+              "type": "text"
+            },
+            {
+              "key": "nombre",
+              "value": "Pago",
+              "type": "text"
+            },
+            {
+              "key": "apellido",
+              "value": "Movil",
+              "type": "text"
+            },
+            {
+              "key": "telefono",
+              "value": "04141234599",
+              "type": "text"
+            },
+            {
+              "key": "pago_metodo",
+              "value": "pago_movil",
+              "type": "text"
+            },
+            {
+              "key": "referencia_pago",
+              "value": "REF-MOVIL-1",
+              "type": "text"
+            },
+            {
+              "key": "comprobante",
+              "type": "file",
+              "src": [
+                "frontend/src/assets/logo-spring.jpg"
+              ]
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/api/citas/publica",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "publica"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// El cliente elige pago móvil y sube el comprobante: la cita se agenda",
+              "// con la misma petición y el comprobante queda pendiente de revisión.",
+              "pm.test('agenda la cita con comprobante con 201', () => { pm.response.to.have.status(201); });",
+              "const json = pm.response.json();",
+              "pm.test('la cita guarda el método de pago móvil', () => {",
+              "  pm.expect(json.cita.pago_metodo).to.eql('pago_movil');",
+              "});",
+              "pm.test('el pago queda pendiente de la revisión del administrador', () => {",
+              "  pm.expect(json.cita.pago_estado).to.eql('pendiente');",
+              "});",
+              "pm.test('la cita espera el visto bueno (no está confirmada)', () => {",
+              "  pm.expect(json.cita.estado).to.eql('pendiente');",
+              "});",
+              "pm.environment.set('citaIDPagoMovil', json.cita.citaID);",
+              "pm.environment.set('codigoCitaPagoMovil', json.codigo);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "62 · El comprobante llega al panel de pagos",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/transacciones",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "transacciones"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Lo que ve el administrador en la pestaña de Pagos: el comprobante",
+              "// pendiente de aprobar.",
+              "pm.test('devuelve 200', () => { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "const pago = json.transacciones.find(p => p.citaID === pm.environment.get('citaIDPagoMovil'));",
+              "pm.test('el pago de la cita está pendiente', () => {",
+              "  pm.expect(pago).to.not.be.undefined;",
+              "  pm.expect(pago.estado).to.eql('pendiente');",
+              "});",
+              "pm.test('guarda el comprobante subido', () => {",
+              "  pm.expect(pago.comprobante_url).to.be.a('string');",
+              "  pm.expect(pago.comprobante_url).to.include('/uploads/');",
+              "});",
+              "pm.test('guarda la referencia del pago', () => {",
+              "  pm.expect(pago.referencia_pago).to.eql('REF-MOVIL-1');",
+              "});",
+              "pm.environment.set('transaccionIDPago', pago.transaccionID);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "63 · Aprobar el comprobante",
+      "request": {
+        "method": "PUT",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/transacciones/{{transaccionIDPago}}/aprobar",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "transacciones",
+            "{{transaccionIDPago}}",
+            "aprobar"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// El botón verde del panel de pagos: el visto bueno del administrador.",
+              "pm.test('aprueba el pago con 200', () => { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('el pago queda completado', () => {",
+              "  pm.expect(json.transaccion.estado).to.eql('completado');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "64 · La cita aprobada queda confirmada",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/citas",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Al aprobar, la cita sigue su curso normal: pasa a confirmada.",
+              "const json = pm.response.json();",
+              "const cita = json.citas.find(c => c.citaID === pm.environment.get('citaIDPagoMovil'));",
+              "pm.test('la cita queda confirmada', () => {",
+              "  pm.expect(cita.estado).to.eql('confirmada');",
+              "});",
+              "pm.test('el pago de la cita queda completado', () => {",
+              "  pm.expect(cita.pago_estado).to.eql('completado');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "65 · Reservar con efectivo (pago pendiente)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"barberoID\": {{barberoID}},\n  \"servicioID\": {{servicioID}},\n  \"fecha_hora\": \"{{fechaCitaPagoEfectivo}}\",\n  \"nombre\": \"Pago\",\n  \"apellido\": \"Efectivo\",\n  \"telefono\": \"04141234600\",\n  \"pago_metodo\": \"efectivo\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/citas/publica",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "publica"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Efectivo o tarjeta: la cita se reserva normal y se queda con la",
+              "// etiqueta de pago pendiente (guardada en la base de datos).",
+              "pm.test('agenda la cita con 201', () => { pm.response.to.have.status(201); });",
+              "const json = pm.response.json();",
+              "pm.test('la cita guarda el método efectivo', () => {",
+              "  pm.expect(json.cita.pago_metodo).to.eql('efectivo');",
+              "});",
+              "pm.test('el pago queda pendiente de hacerse en el local', () => {",
+              "  pm.expect(json.cita.pago_estado).to.eql('pendiente');",
+              "});",
+              "pm.test('la cita se reserva normal (no espera ningún comprobante)', () => {",
+              "  pm.expect(json.cita.estado).to.eql('pendiente');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "66 · El pago móvil exige comprobante",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"barberoID\": {{barberoID}},\n  \"servicioID\": {{servicioID}},\n  \"fecha_hora\": \"{{fechaCitaPagoSinComprobante}}\",\n  \"nombre\": \"Pago\",\n  \"apellido\": \"SinComprobante\",\n  \"telefono\": \"04141234601\",\n  \"pago_metodo\": \"pago_movil\",\n  \"referencia_pago\": \"REF-SIN-1\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/citas/publica",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "publica"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Sin comprobante no hay nada que revisar: la cita no se agenda.",
+              "pm.test('sin comprobante devuelve 400', () => { pm.response.to.have.status(400); });",
+              "pm.test('el mensaje explica que falta el comprobante', () => {",
+              "  pm.expect(pm.response.json().message).to.include('comprobante');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "67 · Reservar con pago móvil para rechazarlo",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "barberoID",
+              "value": "{{barberoID}}",
+              "type": "text"
+            },
+            {
+              "key": "servicioID",
+              "value": "{{servicioID}}",
+              "type": "text"
+            },
+            {
+              "key": "fecha_hora",
+              "value": "{{fechaCitaPagoRechazado}}",
+              "type": "text"
+            },
+            {
+              "key": "nombre",
+              "value": "Pago",
+              "type": "text"
+            },
+            {
+              "key": "apellido",
+              "value": "Rechazado",
+              "type": "text"
+            },
+            {
+              "key": "telefono",
+              "value": "04141234602",
+              "type": "text"
+            },
+            {
+              "key": "pago_metodo",
+              "value": "pago_movil",
+              "type": "text"
+            },
+            {
+              "key": "referencia_pago",
+              "value": "REF-MOVIL-2",
+              "type": "text"
+            },
+            {
+              "key": "comprobante",
+              "type": "file",
+              "src": [
+                "frontend/src/assets/logo-spring.jpg"
+              ]
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/api/citas/publica",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "publica"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('agenda la cita con comprobante con 201', () => { pm.response.to.have.status(201); });",
+              "const json = pm.response.json();",
+              "pm.environment.set('citaIDPagoRechazado', json.cita.citaID);",
+              "pm.environment.set('codigoCitaPagoRechazado', json.codigo);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "68 · Rechazar el comprobante",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/transacciones",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "transacciones"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Se localiza el comprobante pendiente que se va a rechazar.",
+              "const json = pm.response.json();",
+              "const pago = json.transacciones.find(p => p.citaID === pm.environment.get('citaIDPagoRechazado'));",
+              "pm.test('el comprobante está pendiente', () => {",
+              "  pm.expect(pago.estado).to.eql('pendiente');",
+              "});",
+              "pm.environment.set('transaccionIDPagoRechazado', pago.transaccionID);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "69 · Denegar el pago con un motivo",
+      "request": {
+        "method": "PUT",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"motivo\": \"El comprobante no se ve\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/transacciones/{{transaccionIDPagoRechazado}}/rechazar",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "transacciones",
+            "{{transaccionIDPagoRechazado}}",
+            "rechazar"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// El botón rojo del panel de pagos: la cita se deniega y el motivo",
+              "// es el mensaje que ve el cliente.",
+              "pm.test('rechaza el pago con 200', () => { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('el pago queda rechazado con su motivo', () => {",
+              "  pm.expect(json.transaccion.estado).to.eql('rechazado');",
+              "  pm.expect(json.transaccion.motivo_rechazo).to.eql('El comprobante no se ve');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "70 · La cita denegada avisa al cliente",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/citas",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// El administrador ve la cita denegada y el motivo del rechazo.",
+              "const json = pm.response.json();",
+              "const cita = json.citas.find(c => c.citaID === pm.environment.get('citaIDPagoRechazado'));",
+              "pm.test('la cita queda denegada', () => {",
+              "  pm.expect(cita.estado).to.eql('denegada');",
+              "});",
+              "pm.test('el pago queda rechazado', () => {",
+              "  pm.expect(cita.pago_estado).to.eql('rechazado');",
+              "});",
+              "pm.test('la cita guarda el motivo para el cliente', () => {",
+              "  pm.expect(cita.motivo_pago).to.eql('El comprobante no se ve');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "71 · El invitado ve la denegación",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/citas/publica/{{codigoCitaPagoRechazado}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "publica",
+            "{{codigoCitaPagoRechazado}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// El cliente sin cuenta entra con su código y ve que su cita fue",
+              "// denegada, con el motivo del rechazo.",
+              "pm.test('devuelve 200 con el código correcto', () => { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('la cita aparece denegada', () => {",
+              "  pm.expect(json.cita.estado).to.eql('denegada');",
+              "});",
+              "pm.test('el motivo del rechazo es visible para el cliente', () => {",
+              "  pm.expect(json.cita.motivo_pago).to.eql('El comprobante no se ve');",
               "});"
             ]
           }

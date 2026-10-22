@@ -143,6 +143,11 @@ export default function AdminTransacciones() {
         {pendientes > 0 && (
           <p className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
             {pendientes} pago{pendientes === 1 ? '' : 's'} pendiente{pendientes === 1 ? '' : 's'} de revisar.
+            <span className="mt-1 block text-xs text-cream-200/60">
+              Al <strong className="text-emerald-300">aprobar</strong>, la cita queda confirmada y el
+              pago se marca como completado. Al <strong className="text-red-300">rechazar</strong>, la
+              cita se deniega y el cliente ve el motivo en “Mis citas”.
+            </span>
           </p>
         )}
 
@@ -249,7 +254,7 @@ export default function AdminTransacciones() {
                         type="button"
                         disabled={ocupada === p.transaccionID}
                         onClick={() => resolver(p, 'aprobar')}
-                        className="rounded-full bg-gold-500 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-ink-950 hover:bg-gold-400 disabled:opacity-50"
+                        className="rounded-full bg-emerald-500 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-ink-950 hover:bg-emerald-400 disabled:opacity-50"
                       >
                         Aprobar
                       </button>

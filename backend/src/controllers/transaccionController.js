@@ -2,6 +2,11 @@ const db = require('../config/db');
 const { errorInterno } = require('../utils/respuestaError');
 const { idValido } = require('../utils/validacion');
 const { rutaPublica } = require('../config/subidas');
+const {
+  registrarPagoCita,
+  aprobarPagoCita,
+  rechazarPagoCita,
+} = require('../utils/pagos');
 
 /*
  * Transacciones: pagos de cita y movimientos de saldo.
@@ -202,20 +207,26 @@ const crearPago = async (req, res) => {
     // queda pendiente de la revisión del administrador.
     const estado = metodo === 'pago_movil' ? 'pendiente' : 'completado';
 
-    const resultado = await db.query(
-      `INSERT INTO transacciones
-         ("citaID", "usuarioID", metodo_pago, estado, monto, referencia_pago, comprobante_url)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING "transaccionID", "citaID", metodo_pago, estado, monto, referencia_pago, comprobante_url, fecha_creacion;`,
-      [citaId, clienteID, metodo, estado, montoNumero, referencia || null, comprobante]
+    // El pago y la etiqueta de la cita se guardan en la misma transacción:
+    // o quedan los dos, o no queda ninguno.
+    const creada = await db.withTransaction(async (client) =>
+      registrarPagoCita(client, {
+        citaId,
+        clienteId: clienteID,
+        metodo,
+        estado,
+        monto: montoNumero,
+        referencia,
+        comprobante,
+      })
     );
 
     res.status(201).json({
       ok: true,
       message: 'Pago registrado exitosamente',
       transaccion: {
-        ...resultado.rows[0],
-        monto: Number(resultado.rows[0].monto),
+        ...creada,
+        monto: Number(creada.monto),
       }
     });
   } catch (error) {
@@ -344,6 +355,9 @@ const obtenerTransaccion = async (req, res) => {
 };
 
 // 4. Aprobar un pago pendiente
+//
+// El visto bueno del administrador. Si el pago es de una cita, la cita sigue
+// su curso normal: queda confirmada y con el pago completado.
 const aprobarTransaccion = async (req, res) => {
   const transaccionId = idValido(req.params.id);
 
@@ -355,15 +369,31 @@ const aprobarTransaccion = async (req, res) => {
   }
 
   try {
-    const resultado = await db.query(
-      `UPDATE transacciones
-       SET estado = 'completado', motivo_rechazo = NULL
-       WHERE "transaccionID" = $1
-       RETURNING "transaccionID", "citaID", metodo_pago, estado, monto, referencia_pago, comprobante_url, fecha_creacion;`,
-      [transaccionId]
-    );
+    const actualizada = await db.withTransaction(async (client) => {
+      const resultado = await client.query(
+        `UPDATE transacciones
+         SET estado = 'completado', motivo_rechazo = NULL
+         WHERE "transaccionID" = $1
+         RETURNING "transaccionID", "citaID", metodo_pago, estado, monto, referencia_pago, comprobante_url, fecha_creacion;`,
+        [transaccionId]
+      );
 
-    if (resultado.rows.length === 0) {
+      if (resultado.rows.length === 0) return null;
+
+      const transaccion = resultado.rows[0];
+
+      // La cita (si la hay) queda confirmada y con el pago completado.
+      if (transaccion.citaID) {
+        await aprobarPagoCita(client, {
+          citaId: transaccion.citaID,
+          metodo: transaccion.metodo_pago,
+        });
+      }
+
+      return transaccion;
+    });
+
+    if (!actualizada) {
       return res.status(404).json({ ok: false, message: 'Transacción no encontrada' });
     }
 
@@ -371,8 +401,8 @@ const aprobarTransaccion = async (req, res) => {
       ok: true,
       message: 'Pago aprobado exitosamente',
       transaccion: {
-        ...resultado.rows[0],
-        monto: Number(resultado.rows[0].monto),
+        ...actualizada,
+        monto: Number(actualizada.monto),
       }
     });
   } catch (error) {
@@ -381,6 +411,9 @@ const aprobarTransaccion = async (req, res) => {
 };
 
 // 5. Rechazar un pago pendiente
+//
+// La cita (si la hay) queda denegada y guarda el motivo, que es el mensaje
+// que ve el cliente en "Mis citas".
 const rechazarTransaccion = async (req, res) => {
   const transaccionId = idValido(req.params.id);
   const { motivo } = req.body || {};
@@ -402,15 +435,30 @@ const rechazarTransaccion = async (req, res) => {
   }
 
   try {
-    const resultado = await db.query(
-      `UPDATE transacciones
-       SET estado = 'rechazado', motivo_rechazo = $2
-       WHERE "transaccionID" = $1
-       RETURNING "transaccionID", "citaID", metodo_pago, estado, monto, referencia_pago, comprobante_url, motivo_rechazo, fecha_creacion;`,
-      [transaccionId, motivoTexto]
-    );
+    const actualizada = await db.withTransaction(async (client) => {
+      const resultado = await client.query(
+        `UPDATE transacciones
+         SET estado = 'rechazado', motivo_rechazo = $2
+         WHERE "transaccionID" = $1
+         RETURNING "transaccionID", "citaID", metodo_pago, estado, monto, referencia_pago, comprobante_url, motivo_rechazo, fecha_creacion;`,
+        [transaccionId, motivoTexto]
+      );
 
-    if (resultado.rows.length === 0) {
+      if (resultado.rows.length === 0) return null;
+
+      const transaccion = resultado.rows[0];
+
+      if (transaccion.citaID) {
+        await rechazarPagoCita(client, {
+          citaId: transaccion.citaID,
+          motivo: motivoTexto,
+        });
+      }
+
+      return transaccion;
+    });
+
+    if (!actualizada) {
       return res.status(404).json({ ok: false, message: 'Transacción no encontrada' });
     }
 
@@ -418,8 +466,8 @@ const rechazarTransaccion = async (req, res) => {
       ok: true,
       message: 'Pago rechazado exitosamente',
       transaccion: {
-        ...resultado.rows[0],
-        monto: Number(resultado.rows[0].monto),
+        ...actualizada,
+        monto: Number(actualizada.monto),
       }
     });
   } catch (error) {

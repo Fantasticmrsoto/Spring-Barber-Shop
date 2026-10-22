@@ -41,7 +41,11 @@ const subirArchivo = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
   fileFilter: (req, file, cb) => {
     if (!TIPOS_PERMITIDOS.has(file.mimetype)) {
-      return cb(new Error('El archivo debe ser una imagen (JPG, PNG, WEBP o GIF)'));
+      const error = new Error('El archivo debe ser una imagen (JPG, PNG, WEBP o GIF)');
+      // Es un fallo de la petición del cliente, no del servidor: con esto la
+      // API lo devuelve como un 400 con el mensaje, en vez de un 500.
+      error.status = 400;
+      return cb(error);
     }
     cb(null, true);
   },

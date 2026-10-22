@@ -11,6 +11,7 @@ const {
   actualizarEstadoCita
 } = require('../controllers/citaController');
 const { verificarToken } = require('../middlewares/authMiddleware');
+const { subirArchivo } = require('../config/subidas');
 
 /*
  * Citas.
@@ -32,7 +33,12 @@ router.get('/ocupados', obtenerOcupados);
 
 // Reserva sin cuenta. Devuelve el código con el que el cliente podrá volver
 // a su cita (página /cita/<codigo>).
-router.post('/publica', crearCitaPublica);
+//
+// `subirArchivo` solo actúa si la petición viene en multipart (es decir, si
+// el cliente está subiendo el comprobante de un pago móvil). Si viene en
+// JSON, multer la deja pasar tal cual: por eso las dos formas de reservar
+// comparten ruta.
+router.post('/publica', subirArchivo.single('comprobante'), crearCitaPublica);
 
 // Consultar una cita con su código.
 router.get('/publica/:codigo', obtenerCitaPublica);
@@ -48,7 +54,9 @@ router.put('/publica/:codigo/estado', cancelarCitaPublica);
 router.get('/', verificarToken, obtenerCitas);
 
 // Crear una cita con cuenta.
-router.post('/', verificarToken, crearCita);
+// Acepta JSON y multipart: en multipart, el cliente puede subir el
+// comprobante del pago móvil en la misma petición que agenda la cita.
+router.post('/', verificarToken, subirArchivo.single('comprobante'), crearCita);
 
 // Cambiar el estado de una cita.
 // Los permisos se comprueban en el controlador: el administrador puede cambiar

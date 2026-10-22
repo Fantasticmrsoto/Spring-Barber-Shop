@@ -3,18 +3,19 @@ import { Link } from 'react-router-dom'
 import { cambiarEstadoCita, reprogramarCita } from '../api/citas'
 import { mensajeDeError } from '../api/client'
 import { fechaHora, aInputFechaHora, precio, nombreCliente } from '../utils/formato'
-import { ESTADOS_CITA } from '../utils/pago'
+import { ESTADOS_CITA, mensajeDenegacion } from '../utils/pago'
 import EstadoPagoBadge from './EstadoPagoBadge'
 
 const ESTADOS = ESTADOS_CITA
 
-const FILTROS = ['todas', 'pendiente', 'confirmada', 'completada', 'cancelada']
+const FILTROS = ['todas', 'pendiente', 'confirmada', 'completada', 'cancelada', 'denegada']
 
 const SIGUIENTES = {
   pendiente: ['confirmada', 'cancelada'],
   confirmada: ['completada', 'cancelada'],
   completada: [],
   cancelada: [],
+  denegada: [],
 }
 
 const ETIQUETA = {
@@ -27,10 +28,14 @@ const ETIQUETA = {
 // en la tarjeta destacada de "Mis citas".
 export function AccionesClienteCita({ cita }) {
   const puedeReprogramar = cita.estado === 'pendiente' || cita.estado === 'confirmada'
-  // Se puede pagar mientras la cita siga en pie y no haya un pago ya aprobado o en revisión.
+  // Se puede pagar mientras la cita siga en pie y el pago no esté ya aprobado
+  // o en revisión. Si la cita se reservó para pagar en el local, el pago
+  // pendiente no impide pagar por pago móvil después.
   const puedePagar =
-    cita.estado !== 'cancelada' &&
-    (!cita.pago_estado || cita.pago_estado === 'rechazado')
+    !['cancelada', 'denegada'].includes(cita.estado) &&
+    (!cita.pago_estado ||
+      cita.pago_estado === 'rechazado' ||
+      (cita.pago_estado === 'pendiente' && cita.pago_metodo !== 'pago_movil'))
   return (
     <>
       {puedePagar && (
@@ -266,8 +271,25 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
                     {estado.label}
                   </span>
 
-                  <EstadoPagoBadge estado={cita.pago_estado} />
+                  <EstadoPagoBadge estado={cita.pago_estado} metodo={cita.pago_metodo} />
                 </div>
+
+                {cita.pago_estado === 'rechazado' && (
+                  <p className="w-full rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                    {modo === 'cliente'
+                      ? mensajeDenegacion(cita)
+                      : `Pago denegado.${cita.motivo_pago ? ` Motivo: ${cita.motivo_pago}` : ''}`}
+                  </p>
+                )}
+
+                {modo === 'cliente' &&
+                  cita.pago_estado === 'pendiente' &&
+                  cita.pago_metodo === 'pago_movil' && (
+                    <p className="w-full text-xs text-amber-200/80">
+                      Tu comprobante está en revisión: el administrador lo aprueba y
+                      tu cita queda confirmada.
+                    </p>
+                  )}
 
                 {(acciones.length > 0 || modo === 'cliente' || puedeReprogramar) && (
                   <div className="flex flex-wrap gap-2 sm:ml-auto">

@@ -3,9 +3,18 @@ const db = require('../config/db');
 const { errorInterno } = require('../utils/respuestaError');
 const { nombreDia, horaAMinutos, fechaYmd, parsearFechaHora, idValido } = require('../utils/validacion');
 const { esDiaDeDescanso, mensajeDiaDeDescanso } = require('../config/calendario');
+const { rutaPublica } = require('../config/subidas');
+const {
+  leerMetodoPago,
+  registrarPagoCita,
+} = require('../utils/pagos');
 
-// Estados permitidos (deben coincidir con el CHECK de la migración 001)
-const ESTADOS_VALIDOS = ['pendiente', 'confirmada', 'completada', 'cancelada'];
+// Estados permitidos (deben coincidir con el CHECK `cita_estado_check`).
+//
+// "denegada" la pone el administrador cuando rechaza el comprobante de un
+// pago móvil: no es lo mismo que "cancelada", que es el cliente quien
+// cancela su cita.
+const ESTADOS_VALIDOS = ['pendiente', 'confirmada', 'completada', 'cancelada', 'denegada'];
 
 // Error de negocio con código HTTP, para diferenciarlo de un fallo de PostgreSQL
 const errorHttp = (status, message) => {
@@ -41,12 +50,21 @@ const SELECT_CITA = `
     s.nombre   AS servicio_nombre,
     s.precio,
     s.duracion_minutos,
-    (
-      SELECT t.estado
-      FROM transacciones t
-      WHERE t."citaID" = c."citaID"
-      ORDER BY t."transaccionID" DESC
-      LIMIT 1
+    c.pago_metodo,
+    c.motivo_pago,
+    -- El estado del pago vive en la cita (columna "pago_estado"). El
+    -- COALESCE con la última transacción es la red de seguridad para las
+    -- citas que ya existían antes de esa columna: así no pierden la etiqueta
+    -- de "pagado" que tenían.
+    COALESCE(
+      c.pago_estado,
+      (
+        SELECT t.estado
+        FROM transacciones t
+        WHERE t."citaID" = c."citaID"
+        ORDER BY t."transaccionID" DESC
+        LIMIT 1
+      )
     ) AS pago_estado
   FROM cita c
   LEFT JOIN usuario u   ON c."clienteID"  = u."usuarioID"
@@ -219,13 +237,13 @@ const validarCita = async (client, {
 
   // B. La duración del servicio define la hora de fin de la cita
   const servicioRes = await client.query(
-    'SELECT "serviciosID", duracion_minutos FROM servicios WHERE "serviciosID" = $1',
+    'SELECT "serviciosID", duracion_minutos, precio FROM servicios WHERE "serviciosID" = $1',
     [servicioId]
   );
   if (servicioRes.rows.length === 0) {
     throw errorHttp(404, 'Servicio no encontrado');
   }
-  const { duracion_minutos: duracionMinutos } = servicioRes.rows[0];
+  const { duracion_minutos: duracionMinutos, precio } = servicioRes.rows[0];
   const fechaFin = new Date(fechaInicio.getTime() + duracionMinutos * 60 * 1000);
 
   // C. Días en los que la peluquería no abre.
@@ -293,7 +311,7 @@ const validarCita = async (client, {
     `SELECT "citaID", fecha_inicio, fecha_fin
      FROM cita
      WHERE "barberoID" = $1
-       AND estado <> 'cancelada'
+       AND estado NOT IN ('cancelada', 'denegada')
        AND fecha_inicio < $3
        AND fecha_fin   > $2${filtroCruce}`,
     paramsCruce
@@ -302,7 +320,7 @@ const validarCita = async (client, {
     throw errorHttp(400, 'El barbero ya tiene una cita que se cruza con ese horario');
   }
 
-  return { fechaFin, duracionMinutos };
+  return { fechaFin, duracionMinutos, precio };
 };
 
 /*
@@ -325,6 +343,8 @@ const agendarCita = async (client, {
   telefonoInvitado = null,
   codigo = null,
   excluirCitaId = null,
+  pagoMetodo = null,
+  pagoEstado = null,
 }) => {
   const { fechaFin } = await validarCita(client, {
     barberoId,
@@ -335,9 +355,9 @@ const agendarCita = async (client, {
 
   // F. Insertar la nueva cita
   const insercion = await client.query(
-    `INSERT INTO cita ("clienteID", "barberoID", "servicioID", fecha_inicio, fecha_fin, estado, es_invitado, contacto_nombre, contacto_telefono, codigo)
-     VALUES ($1, $2, $3, $4, $5, 'pendiente', $6, $7, $8, $9)
-     RETURNING "citaID", "clienteID", "barberoID", "servicioID", fecha_inicio, fecha_fin, estado, es_invitado, contacto_nombre, contacto_telefono, codigo;`,
+    `INSERT INTO cita ("clienteID", "barberoID", "servicioID", fecha_inicio, fecha_fin, estado, es_invitado, contacto_nombre, contacto_telefono, codigo, pago_metodo, pago_estado)
+     VALUES ($1, $2, $3, $4, $5, 'pendiente', $6, $7, $8, $9, $10, $11)
+     RETURNING "citaID", "clienteID", "barberoID", "servicioID", fecha_inicio, fecha_fin, estado, es_invitado, contacto_nombre, contacto_telefono, codigo, pago_metodo, pago_estado;`,
     [
       esInvitado ? null : clienteId,
       barberoId,
@@ -348,9 +368,60 @@ const agendarCita = async (client, {
       esInvitado ? nombreInvitado : null,
       esInvitado ? telefonoInvitado : null,
       codigo,
+      pagoMetodo,
+      pagoEstado,
     ]
   );
   return insercion.rows[0];
+};
+
+/*
+ * Datos del pago que llegan al reservar.
+ *
+ * El cliente elige la forma de pago antes de confirmar:
+ *
+ *   - **pago móvil**: sube un comprobante (una imagen) y una referencia. La
+ *     cita queda esperando que el administrador lo apruebe.
+ *   - **efectivo o tarjeta**: la cita se reserva normal y el pago queda
+ *     pendiente de hacerse en el local.
+ *
+ * Devuelve un error de negocio (con su mensaje) si lo que llega no sirve, y
+ * `null` si la petición no trae pago (el panel del administrador agenda citas
+ * sin método de pago).
+ */
+const leerPagoDeReserva = (req) => {
+  const { metodo, error } = leerMetodoPago(req.body?.pago_metodo);
+
+  if (error) return { error };
+
+  if (!metodo) return { pago: null };
+
+  const referencia =
+    typeof req.body?.referencia_pago === 'string' ? req.body.referencia_pago.trim() : '';
+
+  const comprobante = req.file ? rutaPublica(req.file.filename) : null;
+
+  if (metodo === 'pago_movil') {
+    if (!comprobante) {
+      return {
+        error: 'El pago móvil necesita el comprobante: sube una imagen del pago',
+      };
+    }
+    if (!referencia) {
+      return { error: 'El pago móvil necesita una referencia de pago' };
+    }
+  }
+
+  return {
+    pago: {
+      metodo,
+      referencia,
+      comprobante,
+      // Con pago móvil el comprobante queda pendiente de revisión; con
+      // efectivo o tarjeta, el pago queda pendiente de hacerse en el local.
+      estado: 'pendiente',
+    },
+  };
 };
 
 /*
@@ -419,6 +490,13 @@ const crearCita = async (req, res) => {
     });
   }
 
+  // El pago elegido al reservar (pago móvil con comprobante o efectivo/tarjeta
+  // pendiente de cobrar en el local).
+  const { pago, error: errorPago } = leerPagoDeReserva(req);
+  if (errorPago) {
+    return res.status(400).json({ ok: false, message: errorPago });
+  }
+
   try {
     const cita = await db.withTransaction(async (client) => {
       const guardada = await agendarCita(client, {
@@ -429,7 +507,28 @@ const crearCita = async (req, res) => {
         esInvitado,
         nombreInvitado: nombreInvitado || null,
         telefonoInvitado: telefonoInvitado || null,
+        pagoMetodo: pago ? pago.metodo : null,
+        pagoEstado: pago ? pago.estado : null,
       });
+
+      // Con pago móvil, el comprobante se guarda como pago de la cita: queda
+      // pendiente hasta que el administrador lo apruebe o lo rechace.
+      if (pago && pago.metodo === 'pago_movil') {
+        const { rows: servicios } = await client.query(
+          'SELECT precio FROM servicios WHERE "serviciosID" = $1',
+          [servicioId]
+        );
+
+        await registrarPagoCita(client, {
+          citaId: guardada.citaID,
+          clienteId: esInvitado ? null : clienteId,
+          metodo: pago.metodo,
+          estado: 'pendiente',
+          monto: Number(servicios[0].precio),
+          referencia: pago.referencia,
+          comprobante: pago.comprobante,
+        });
+      }
 
       // Se devuelve la cita con los nombres unidos, igual que el listado.
       const completa = await client.query(`${SELECT_CITA} WHERE c."citaID" = $1`, [guardada.citaID]);
@@ -508,6 +607,13 @@ const crearCitaPublica = async (req, res) => {
     });
   }
 
+  // El pago elegido al reservar. Un invitado también puede pagar por pago
+  // móvil: sube el comprobante y el administrador lo revisa.
+  const { pago, error: errorPago } = leerPagoDeReserva(req);
+  if (errorPago) {
+    return res.status(400).json({ ok: false, message: errorPago });
+  }
+
   try {
     const codigo = generarCodigo();
 
@@ -520,7 +626,26 @@ const crearCitaPublica = async (req, res) => {
         nombreInvitado,
         telefonoInvitado,
         codigo,
+        pagoMetodo: pago ? pago.metodo : null,
+        pagoEstado: pago ? pago.estado : null,
       });
+
+      if (pago && pago.metodo === 'pago_movil') {
+        const { rows: servicios } = await client.query(
+          'SELECT precio FROM servicios WHERE "serviciosID" = $1',
+          [servicioId]
+        );
+
+        await registrarPagoCita(client, {
+          citaId: guardada.citaID,
+          clienteId: null,
+          metodo: pago.metodo,
+          estado: 'pendiente',
+          monto: Number(servicios[0].precio),
+          referencia: pago.referencia,
+          comprobante: pago.comprobante,
+        });
+      }
 
       const completa = await client.query(`${SELECT_CITA} WHERE c."citaID" = $1`, [guardada.citaID]);
       return completa.rows[0];
@@ -676,7 +801,7 @@ const reprogramarCita = async (req, res) => {
 
     const cita = actual.rows[0];
 
-    if (cita.estado === 'cancelada' || cita.estado === 'completada') {
+    if (['cancelada', 'denegada', 'completada'].includes(cita.estado)) {
       return res.status(400).json({
         ok: false,
         message: 'Esta cita ya no se puede reprogramar'

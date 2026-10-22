@@ -18,6 +18,7 @@ const PASO_SERVICIO = 'Servicio'
 const PASO_BARBERO = 'Barbero'
 const PASO_FECHA = 'Fecha y hora'
 const PASO_DATOS = 'Tus datos'
+const PASO_PAGO = 'Forma de pago'
 
 // Texto del botón "volver" según el paso al que se regresa. Se deriva del
 // paso anterior real en lugar de suponerlo: con ?servicio=<id> el primer paso
@@ -28,6 +29,7 @@ const ETIQUETA_PASO = {
   [PASO_BARBERO]: 'barberos',
   [PASO_FECHA]: 'fecha y hora',
   [PASO_DATOS]: 'tus datos',
+  [PASO_PAGO]: 'la forma de pago',
 }
 
 const paraMinutos = (hhmm) => {
@@ -94,6 +96,9 @@ export default function Reservar() {
   if (!esBarberoFijo) pasos.push(PASO_BARBERO)
   pasos.push(PASO_FECHA)
   if (esInvitado) pasos.push(PASO_DATOS)
+  // La forma de pago se pide al reservar. Al reprogramar no se vuelve a
+  // elegir: la cita ya existe y su pago no cambia.
+  if (!esReprogramar) pasos.push(PASO_PAGO)
 
   const [servicios, setServicios] = useState([])
   const [barberos, setBarberos] = useState([])
@@ -128,6 +133,13 @@ export default function Reservar() {
     apellido: '',
     telefono: '',
   })
+
+  // Forma de pago elegida al reservar:
+  //   - 'pago_movil': el cliente sube el comprobante y el administrador lo
+  //     aprueba (verde) o lo rechaza (rojo) desde el panel.
+  //   - 'efectivo' | 'tarjeta': la cita se reserva normal y el pago queda
+  //     pendiente de hacerse en el local.
+  const [pago, setPago] = useState({ metodo: 'pago_movil', referencia: '', archivo: null })
 
   const pasoActual = pasos[paso]
   // El paso al que vuelve el botón "atrás". Puede no existir: si se entra
@@ -327,9 +339,33 @@ export default function Reservar() {
       }
     }
 
+    // El pago móvil necesita el comprobante y la referencia: sin ellos el
+    // administrador no tiene nada que revisar.
+    if (!esReprogramar && pago.metodo === 'pago_movil') {
+      if (!pago.archivo) {
+        setError('Sube el comprobante del pago móvil (una imagen del pago).')
+        return
+      }
+      if (!pago.referencia.trim()) {
+        setError('Escribe la referencia del pago móvil.')
+        return
+      }
+    }
+
     setEnviando(true)
     try {
       const fecha_hora = `${fecha}T${hora}:00`
+
+      // Lo que se manda junto a la reserva. Al reprogramar no hay pago.
+      const formaPago = esReprogramar
+        ? {}
+        : pago.metodo === 'pago_movil'
+          ? {
+              pago_metodo: 'pago_movil',
+              referencia_pago: pago.referencia.trim(),
+              comprobante: pago.archivo,
+            }
+          : { pago_metodo: pago.metodo }
 
       if (esReprogramar) {
         const cita = await reprogramarCita(reprogramarID, { fecha_hora })
@@ -342,6 +378,7 @@ export default function Reservar() {
           nombre: datosInvitado.nombre.trim(),
           apellido: datosInvitado.apellido.trim(),
           telefono: datosInvitado.telefono.trim(),
+          ...formaPago,
         })
         setCodigoGestion(codigo)
         setConfirmada(cita)
@@ -351,6 +388,7 @@ export default function Reservar() {
           barberoID: barbero.barberoID,
           servicioID: servicio.serviciosID,
           fecha_hora,
+          ...formaPago,
         })
         setConfirmada(cita)
       }
@@ -371,6 +409,7 @@ export default function Reservar() {
     setPaso(0)
     setError(null)
     setDatosInvitado({ nombre: '', apellido: '', telefono: '' })
+    setPago({ metodo: 'pago_movil', referencia: '', archivo: null })
   }
 
   if (confirmada) {
@@ -406,6 +445,20 @@ export default function Reservar() {
             <p className="mt-4 text-xs uppercase tracking-wider text-cream-200/50">
               Estado: {confirmada.estado}
             </p>
+
+            {!esReprogramar && pago.metodo === 'pago_movil' && (
+              <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                Enviamos tu comprobante de pago móvil. El administrador lo revisa y
+                tu cita queda confirmada en cuanto lo apruebe.
+              </p>
+            )}
+
+            {!esReprogramar && (pago.metodo === 'efectivo' || pago.metodo === 'tarjeta') && (
+              <p className="mt-3 rounded-lg border border-gold-500/30 bg-gold-500/10 px-3 py-2 text-sm text-gold-200">
+                Tu cita está reservada. El pago ({pago.metodo}) se realiza en el
+                local y queda pendiente hasta que lo completes.
+              </p>
+            )}
 
             {codigoGestion && (
               <div className="mt-5 rounded-xl border border-white/10 bg-ink-950/60 px-4 py-3 text-left">
@@ -761,10 +814,14 @@ export default function Reservar() {
                   <button
                     type="button"
                     disabled={!fecha || !hora || enviando}
-                    onClick={() => (esInvitado ? setPaso(paso + 1) : confirmar())}
+                    onClick={() => (esReprogramar ? confirmar() : setPaso(paso + 1))}
                     className="w-full rounded-full bg-gold-500 px-7 py-3 text-sm font-semibold uppercase tracking-wider text-ink-950 transition hover:bg-gold-400 disabled:cursor-not-allowed disabled:opacity-50 sm:ml-auto sm:w-auto"
                   >
-                    {esInvitado ? 'Continuar' : enviando ? 'Agendando…' : 'Confirmar cita'}
+                    {esReprogramar
+                      ? enviando
+                        ? 'Agendando…'
+                        : 'Confirmar cita'
+                      : 'Continuar'}
                   </button>
                 </div>
               </>
@@ -842,10 +899,161 @@ export default function Reservar() {
                   <button
                     type="button"
                     disabled={enviando}
+                    onClick={() => {
+                      setError(null)
+                      setPaso(paso + 1)
+                    }}
+                    className="w-full rounded-full bg-gold-500 px-7 py-3 text-sm font-semibold uppercase tracking-wider text-ink-950 transition hover:bg-gold-400 disabled:cursor-not-allowed disabled:opacity-50 sm:ml-auto sm:w-auto"
+                  >
+                    Continuar
+                  </button>
+                </div>
+              </>
+            )}
+
+            {pasoActual === PASO_PAGO && (
+              <>
+                <h2 className="mb-1 font-display text-lg uppercase tracking-wide">
+                  ¿Cómo vas a pagar?
+                </h2>
+                <p className="mb-4 text-sm text-cream-200/60">
+                  {servicio.nombre} · {barbero.nombre} {barbero.apellido} ·{' '}
+                  {fecha} {hora} · {precio(servicio.precio)}
+                </p>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPago((p) => ({ ...p, metodo: 'pago_movil', archivo: p.archivo }))
+                    }
+                    className={`rounded-xl border p-4 text-left transition ${
+                      pago.metodo === 'pago_movil'
+                        ? 'border-gold-500 bg-gold-500/10'
+                        : 'border-white/10 bg-ink-800 hover:border-gold-500/60'
+                    }`}
+                  >
+                    <span className="block font-semibold text-cream-50">Pago móvil</span>
+                    <span className="mt-1 block text-xs text-cream-200/60">
+                      Subes el comprobante del pago y el administrador lo aprueba. Tu
+                      cita se confirma cuando lo da por bueno.
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPago((p) => ({ ...p, metodo: 'efectivo', archivo: null }))
+                    }
+                    className={`rounded-xl border p-4 text-left transition ${
+                      pago.metodo === 'efectivo'
+                        ? 'border-gold-500 bg-gold-500/10'
+                        : 'border-white/10 bg-ink-800 hover:border-gold-500/60'
+                    }`}
+                  >
+                    <span className="block font-semibold text-cream-50">
+                      Efectivo o tarjeta
+                    </span>
+                    <span className="mt-1 block text-xs text-cream-200/60">
+                      Reservas normal y pagas aquí en el local. La cita queda con la
+                      etiqueta de pago pendiente.
+                    </span>
+                  </button>
+                </div>
+
+                {pago.metodo === 'efectivo' && (
+                  <div className="mt-4">
+                    <span className="block text-xs uppercase tracking-wider text-cream-200/70">
+                      ¿Cómo vas a pagar en el local?
+                    </span>
+                    <div className="mt-2 flex gap-2">
+                      {[
+                        { valor: 'efectivo', texto: 'Efectivo' },
+                        { valor: 'tarjeta', texto: 'Tarjeta' },
+                      ].map((opcion) => (
+                        <button
+                          key={opcion.valor}
+                          type="button"
+                          onClick={() => setPago((p) => ({ ...p, metodo: opcion.valor }))}
+                          className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wider transition ${
+                            pago.metodo === opcion.valor
+                              ? 'bg-gold-500 text-ink-950'
+                              : 'border border-white/15 text-cream-200 hover:border-gold-400'
+                          }`}
+                        >
+                          {opcion.texto}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {pago.metodo === 'pago_movil' && (
+                  <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                    <label className="block text-xs uppercase tracking-wider text-cream-200/70">
+                      Comprobante del pago
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) =>
+                          setPago((p) => ({ ...p, archivo: e.target.files?.[0] ?? null }))
+                        }
+                        className="mt-2 block w-full text-xs text-cream-200/70 file:mr-3 file:rounded-full file:border-0 file:bg-gold-500 file:px-4 file:py-2 file:text-xs file:font-semibold file:uppercase file:tracking-wider file:text-ink-950"
+                      />
+                      <span className="mt-2 block text-[0.65rem] text-cream-200/40">
+                        Una imagen del pago (JPG, PNG o WEBP). Máximo 5 MB.
+                      </span>
+                    </label>
+
+                    <label className="block text-xs uppercase tracking-wider text-cream-200/70">
+                      Referencia del pago
+                      <input
+                        type="text"
+                        value={pago.referencia}
+                        onChange={(e) =>
+                          setPago((p) => ({ ...p, referencia: e.target.value }))
+                        }
+                        placeholder="1234-5678"
+                        className="mt-2 block w-full rounded-xl border border-white/10 bg-ink-800 px-4 py-3 text-cream-50 outline-none focus:border-gold-500"
+                      />
+                      <span className="mt-2 block text-[0.65rem] text-cream-200/40">
+                        El número de la operación, para que el administrador pueda
+                        comprobarla.
+                      </span>
+                    </label>
+                  </div>
+                )}
+
+                {error && (
+                  <p className="mt-5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                    {error}
+                  </p>
+                )}
+
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                  {puedeVolver && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError(null)
+                        setPaso(paso - 1)
+                      }}
+                      className="text-sm text-cream-200/60 hover:text-gold-400"
+                    >
+                      ← Volver a {ETIQUETA_PASO[pasoAnterior]}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={enviando}
                     onClick={confirmar}
                     className="w-full rounded-full bg-gold-500 px-7 py-3 text-sm font-semibold uppercase tracking-wider text-ink-950 transition hover:bg-gold-400 disabled:cursor-not-allowed disabled:opacity-50 sm:ml-auto sm:w-auto"
                   >
-                    {enviando ? 'Agendando…' : 'Confirmar cita'}
+                    {enviando
+                      ? 'Agendando…'
+                      : pago.metodo === 'pago_movil'
+                        ? 'Reservar y enviar comprobante'
+                        : 'Reservar cita'}
                   </button>
                 </div>
               </>

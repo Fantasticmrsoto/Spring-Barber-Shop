@@ -16,6 +16,7 @@ const VACIO = {
   clienteID: '',
   nombre: '',
   telefono: '',
+  pago_metodo: '',
 }
 
 export default function AdminNuevaCita() {
@@ -92,6 +93,11 @@ export default function AdminNuevaCita() {
       payload.contacto_nombre = form.nombre.trim()
       payload.contacto_telefono = form.telefono.trim()
     }
+    // Si el administrador sabe que se paga en el local, la cita queda marcada
+    // como "pago pendiente" hasta que se cobre.
+    if (form.pago_metodo) {
+      payload.pago_metodo = form.pago_metodo
+    }
 
     setEnviando(true)
     try {
@@ -167,6 +173,20 @@ export default function AdminNuevaCita() {
           Duración {duracion(servicio.duracion_minutos)} · terminaría según el horario del barbero.
         </p>
       )}
+
+      <label className={`mt-4 ${etiqueta}`}>
+        Pago en el local
+        <select
+          name="pago_metodo"
+          value={form.pago_metodo}
+          onChange={cambio}
+          className={`mt-2 ${inputClase}`}
+        >
+          <option value="">Sin definir</option>
+          <option value="efectivo">Efectivo (queda pendiente de cobro)</option>
+          <option value="tarjeta">Tarjeta (queda pendiente de cobro)</option>
+        </select>
+      </label>
 
       <div className="mt-5">
         <span className={etiqueta}>¿Para quién es la cita?</span>

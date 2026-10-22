@@ -3,9 +3,10 @@ import { Link, useParams } from 'react-router-dom'
 import { getCitaPublica, cancelarCitaPublica } from '../api/citas'
 import { mensajeDeError } from '../api/client'
 import { fechaHora, precio, duracion, nombreCliente } from '../utils/formato'
-import { ESTADOS_CITA } from '../utils/pago'
+import { ESTADOS_CITA, mensajeDenegacion } from '../utils/pago'
 import { enlaceWhatsApp } from '../config'
 import AppHeader from '../components/AppHeader'
+import EstadoPagoBadge from '../components/EstadoPagoBadge'
 
 const ESTADOS = ESTADOS_CITA
 
@@ -59,10 +60,14 @@ export default function CitaPublica() {
 
         {cita && (
           <div className="mt-6 rounded-2xl border border-white/10 bg-ink-900 p-4 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <span className="font-display text-lg uppercase tracking-wide text-cream-50">
                 {cita.servicio_nombre}
               </span>
+              <EstadoPagoBadge estado={cita.pago_estado} metodo={cita.pago_metodo} />
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-3">
               <span
                 className={`rounded-full px-3 py-1 text-xs uppercase tracking-wider ${
                   (ESTADOS[cita.estado] ?? ESTADOS.pendiente).clase
@@ -71,6 +76,19 @@ export default function CitaPublica() {
                 {(ESTADOS[cita.estado] ?? ESTADOS.pendiente).label}
               </span>
             </div>
+
+            {cita.pago_estado === 'rechazado' && (
+              <p className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                {mensajeDenegacion(cita)}
+              </p>
+            )}
+
+            {cita.pago_estado === 'pendiente' && cita.pago_metodo === 'pago_movil' && (
+              <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                Enviamos tu comprobante de pago móvil. El administrador lo revisa y tu
+                cita queda confirmada en cuanto lo aprueba.
+              </p>
+            )}
 
             <dl className="mt-5 space-y-2 text-sm">
               <div className="flex justify-between gap-4">

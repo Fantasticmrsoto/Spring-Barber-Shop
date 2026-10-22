@@ -6,7 +6,7 @@ import { mensajeDeError } from '../api/client'
 import { fechaHora, precio, urlImagen } from '../utils/formato'
 import AppHeader from '../components/AppHeader'
 import EstadoPagoBadge from '../components/EstadoPagoBadge'
-import { METODOS_PAGO } from '../utils/pago'
+import { METODOS_PAGO, mensajeDenegacion } from '../utils/pago'
 import { inputClase, botonPrimario, botonSecundario, etiqueta, tarjeta } from '../ui/estilos'
 
 // El pago del cliente es siempre por Pago Móvil: sube el comprobante y queda
@@ -107,12 +107,21 @@ export default function PagarCita() {
               <p className="text-sm text-cream-200/70">
                 Barbero: {cita.barbero_nombre} {cita.barbero_apellido}
               </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <EstadoPagoBadge estado={cita.pago_estado} metodo={cita.pago_metodo} />
+              </div>
             </div>
+
+            {cita.pago_estado === 'rechazado' && (
+              <p className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                {mensajeDenegacion(cita)}
+              </p>
+            )}
 
             {pago && (
               <div className={`${tarjeta} mt-4 p-5`}>
                 <div className="flex flex-wrap items-center gap-3">
-                  <EstadoPagoBadge estado={pago.estado} />
+                  <EstadoPagoBadge estado={pago.estado} metodo={pago.metodo_pago} />
                   <span className="text-sm text-cream-200/70">
                     {METODOS_PAGO[pago.metodo_pago] ?? pago.metodo_pago} · {precio(pago.monto)}
                   </span>

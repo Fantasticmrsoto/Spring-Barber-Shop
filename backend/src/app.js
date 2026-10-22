@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const multer = require('multer');
 require('dotenv').config();
 
 // La zona horaria se fija lo primero: de ella depende que una cita de las
@@ -264,6 +265,22 @@ app.use((err, req, res, next) => {
   // Si la respuesta ya empezó a enviarse, no se puede cambiar: se corta la
   // conexión para que el cliente lo detecte.
   if (res.headersSent) return next(err);
+
+  /*
+   * Errores de multer (la subida del comprobante de pago o de la foto).
+   *
+   * Dependen de lo que envió el cliente, no del servidor, así que se devuelven
+   * como un 400 con un mensaje legible: sin esto, un comprobante de 6 MB
+   * devolvía un 500 "Error interno del servidor" y el cliente no entendía
+   * qué había pasado.
+   */
+  if (err instanceof multer.MulterError) {
+    const mensaje =
+      err.code === 'LIMIT_FILE_SIZE'
+        ? 'El archivo es demasiado grande (el máximo son 5 MB)'
+        : `No se pudo procesar el archivo: ${err.message}`;
+    return res.status(400).json({ ok: false, error: mensaje });
+  }
 
   const status = Number(err.status || err.statusCode) || 500;
   res.status(status).json({

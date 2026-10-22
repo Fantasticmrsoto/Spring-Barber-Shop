@@ -335,6 +335,7 @@ el servidor** (`AUTO_MIGRATE`), o a mano con `npm run migrate`.
 | 007 | `dias_no_laborables` | Tabla `feriado` + 24 feriados VE 2026–2027 |
 | 008 | `datos_del_panel_admin` | Columnas que el panel del administrador necesita (`transacciones.citaID`, `metodo_pago`, `estado`, `comprobante_url`, `motivo_rechazo`, `cita.es_invitado`, `contacto_nombre`, `contacto_telefono`) |
 | 009 | `codigo_cita_publica` | `cita.codigo` + índice único parcial: el código con el que un invitado ve y cancela su cita sin cuenta |
+| 010 | `pago_al_reservar` | `cita.pago_metodo`, `cita.pago_estado`, `cita.motivo_pago`; añade `denegada` al estado de cita; CHECKs del pago; rellena datos desde `transacciones` |
 
 Dos detalles que muestran el cuidado del diseño:
 

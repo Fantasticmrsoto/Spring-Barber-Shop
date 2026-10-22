@@ -420,6 +420,10 @@ gratis no caduca.
 **Migración nueva después de desplegar**
 → Cada redeploy ejecuta `npm run migrate` antes de arrancar. Si añades una
 migración nueva en `backend/migrations/`, el siguiente deploy la aplica sola.
+Las migraciones ya aplicadas se quedan registradas en `schema_migrations` y solo
+se ejecutan las que falten. La migración `010_pago_al_reservar` añade los campos
+de pago a `cita`, el estado `denegada`, los CHECKs correspondientes y rellena los
+datos de las citas que ya tuvieran una transacción.
 
 ---
 
