@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { cambiarEstadoCita } from '../api/citas'
+import { cambiarEstadoCita, reprogramarCita } from '../api/citas'
 import { mensajeDeError } from '../api/client'
-import { fechaHora, precio, nombreCliente } from '../utils/formato'
+import { fechaHora, aInputFechaHora, precio, nombreCliente } from '../utils/formato'
 import { ESTADOS_CITA } from '../utils/pago'
 import EstadoPagoBadge from './EstadoPagoBadge'
 
@@ -64,6 +64,10 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
   const [error, setError] = useState(null)
   const [ocupada, setOcupada] = useState(null)
 
+  // Reprogramación: la cita que se está moviendo de fecha y la nueva hora.
+  const [reprogramando, setReprogramando] = useState(null)
+  const [nuevaFecha, setNuevaFecha] = useState('')
+
   // Filtros locales sobre la lista ya acotada por rol en el backend.
   const [filtro, setFiltro] = useState('todas')
   const [desde, setDesde] = useState('')
@@ -74,6 +78,34 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
     setOcupada(cita.citaID)
     try {
       const actualizada = await cambiarEstadoCita(cita.citaID, estado)
+      onCambio?.(actualizada)
+    } catch (e) {
+      setError(mensajeDeError(e))
+    } finally {
+      setOcupada(null)
+    }
+  }
+
+  // Mover una cita a otro día u hora. El backend aplica las mismas reglas que
+  // una reserva nueva: horario laboral, día de descanso, feriado y que no se
+  // solape con otra cita del barbero.
+  function abrirReprogramar(cita) {
+    setError(null)
+    setReprogramando(cita.citaID)
+    setNuevaFecha(aInputFechaHora(cita.fecha_inicio))
+  }
+
+  async function guardarReprogramacion(cita) {
+    if (!nuevaFecha) {
+      setError('Elige la nueva fecha y hora.')
+      return
+    }
+    setError(null)
+    setOcupada(cita.citaID)
+    try {
+      const actualizada = await reprogramarCita(cita.citaID, { fecha_hora: `${nuevaFecha}:00` })
+      setReprogramando(null)
+      setNuevaFecha('')
       onCambio?.(actualizada)
     } catch (e) {
       setError(mensajeDeError(e))
@@ -181,6 +213,12 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
                   ? ['cancelada']
                   : []
 
+            // El backend solo deja mover una cita que sigue en pie: una
+            // completada o cancelada ya no se reprograma.
+            const puedeReprogramar =
+              modo === 'equipo' &&
+              (cita.estado === 'pendiente' || cita.estado === 'confirmada')
+
             return (
               <article
                 key={cita.citaID}
@@ -231,7 +269,7 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
                   <EstadoPagoBadge estado={cita.pago_estado} />
                 </div>
 
-                {(acciones.length > 0 || modo === 'cliente') && (
+                {(acciones.length > 0 || modo === 'cliente' || puedeReprogramar) && (
                   <div className="flex flex-wrap gap-2 sm:ml-auto">
                     {acciones.map((estadoDestino) => (
                       <button
@@ -248,7 +286,52 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
                         {ETIQUETA[estadoDestino]}
                       </button>
                     ))}
+                    {puedeReprogramar && reprogramando !== cita.citaID && (
+                      <button
+                        type="button"
+                        onClick={() => abrirReprogramar(cita)}
+                        className="rounded-full border border-gold-500/40 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gold-300 transition hover:bg-gold-500 hover:text-ink-950 sm:py-1.5"
+                      >
+                        Reprogramar
+                      </button>
+                    )}
                     {modo === 'cliente' && <AccionesClienteCita cita={cita} />}
+                  </div>
+                )}
+
+                {reprogramando === cita.citaID && (
+                  <div className="flex w-full flex-wrap items-end gap-2 rounded-xl border border-gold-500/30 bg-ink-900 p-3">
+                    <label className="text-[0.65rem] uppercase tracking-wider text-cream-200/60">
+                      Nueva fecha y hora
+                      <input
+                        type="datetime-local"
+                        value={nuevaFecha}
+                        onChange={(e) => setNuevaFecha(e.target.value)}
+                        className="mt-1 block rounded-lg border border-white/10 bg-ink-800 px-2.5 py-2 text-sm text-cream-50 outline-none focus:border-gold-500"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      disabled={ocupada === cita.citaID}
+                      onClick={() => guardarReprogramacion(cita)}
+                      className="rounded-full bg-gold-500 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-ink-950 transition hover:bg-gold-400 disabled:opacity-50"
+                    >
+                      Guardar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReprogramando(null)
+                        setNuevaFecha('')
+                      }}
+                      className="rounded-full border border-white/15 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-cream-200/70 transition hover:border-gold-400 hover:text-gold-300"
+                    >
+                      Cancelar
+                    </button>
+                    <p className="w-full text-xs text-cream-200/40">
+                      Se comprueba el horario del barbero, los días de descanso y los
+                      feriados, igual que al reservar.
+                    </p>
                   </div>
                 )}
               </article>

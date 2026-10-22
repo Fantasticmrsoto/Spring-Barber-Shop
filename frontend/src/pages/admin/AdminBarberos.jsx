@@ -1,10 +1,16 @@
-import { useEffect, useState } from 'react'
-import { getBarberos, crearBarbero, actualizarBarbero } from '../../api/barberos'
+import { useEffect, useRef, useState } from 'react'
+import {
+  getBarberos,
+  crearBarbero,
+  actualizarBarbero,
+  subirFotoBarbero,
+} from '../../api/barberos'
 import { getUsuarios } from '../../api/usuarios'
 import { getServicios } from '../../api/servicios'
 import { getServiciosDeBarbero, asignarServicio, desasignarServicio } from '../../api/barberoServicios'
 import { mensajeDeError } from '../../api/client'
-import { precio } from '../../utils/formato'
+import { precio, urlImagen } from '../../utils/formato'
+import { fotoBarbero } from '../../utils/fotosBarbero'
 import { inputClase, botonPrimario, botonSecundario, etiqueta, tarjeta } from '../../ui/estilos'
 
 const FICHA_VACIA = {
@@ -35,6 +41,15 @@ export default function AdminBarberos() {
   // Servicios que ofrece el barbero seleccionado.
   const [serviciosDe, setServiciosDe] = useState(null)
   const [asignados, setAsignados] = useState(new Set())
+
+  // Foto del barbero: `fotoDe` es el barbero al que se le está cambiando la
+  // foto y `subiendoFoto` el que está subiendo en ese momento. El id se
+  // guarda además en una ref porque el manejador del input lo necesita
+  // aunque el estado todavía no se haya redibujado.
+  const [fotoDe, setFotoDe] = useState(null)
+  const [subiendoFoto, setSubiendoFoto] = useState(false)
+  const inputFoto = useRef(null)
+  const fotoDeRef = useRef(null)
 
   useEffect(() => {
     let activo = true
@@ -156,48 +171,114 @@ export default function AdminBarberos() {
     }
   }
 
+  /*
+   * Cambiar la foto de un barbero.
+   *
+   * La API lo permite para el administrador y para el propio barbero. Desde
+   * aquí se hace lo mismo: el administrador es quien monta el equipo, y no
+   * siempre el barbero entra a su panel a subirla.
+   */
+  async function cambiarFoto(e) {
+    const archivo = e.target.files?.[0]
+    const barberoId = fotoDeRef.current
+    if (!archivo || !barberoId) return
+    setAviso(null)
+    setSubiendoFoto(true)
+    try {
+      const barbero = await subirFotoBarbero(barberoId, archivo)
+      setBarberos((prev) =>
+        prev.map((b) => (b.barberoID === barbero.barberoID ? { ...b, ...barbero } : b)),
+      )
+      setAviso('Foto actualizada.')
+    } catch (err) {
+      setAviso(mensajeDeError(err))
+    } finally {
+      setSubiendoFoto(false)
+      if (inputFoto.current) inputFoto.current.value = ''
+    }
+  }
+
   return (
     <div className="space-y-8">
+      {/* Un único input para todas las fotos: se abre justo después de elegir
+          en qué barbero se va a cambiar. */}
+      <input
+        ref={inputFoto}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        onChange={cambiarFoto}
+        className="hidden"
+      />
+
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
         <div>
           {cargando && <p className="text-cream-200/70">Cargando barberos…</p>}
           {error && <p className="text-red-400">{error}</p>}
           <div className="space-y-2">
-            {barberos.map((b) => (
-              <div
-                key={b.barberoID}
-                className={`${tarjeta} flex flex-wrap items-center gap-3 px-4 py-3 ${
-                  editandoID === b.barberoID ? 'ring-1 ring-gold-500/60' : ''
-                }`}
-              >
-                <div className="min-w-[12rem]">
-                  <p className="text-sm font-semibold text-cream-50">
-                    {b.nombre} {b.apellido}
-                  </p>
-                  <p className="text-xs text-cream-200/50">{b.correo}</p>
-                </div>
-                <span className="text-xs text-cream-200/60">Comisión {b.comision}%</span>
-                <span
-                  className={`rounded-full px-3 py-1 text-xs uppercase tracking-wider ${
-                    b.estado
-                      ? 'bg-emerald-500/15 text-emerald-300'
-                      : 'bg-white/10 text-cream-200/60'
+            {barberos.map((b) => {
+              // Foto de referencia para los barberos que aún no tienen foto
+              // subida: es la misma que se ve en la web.
+              const foto = fotoBarbero(b.barberoID)
+              return (
+                <div
+                  key={b.barberoID}
+                  className={`${tarjeta} flex flex-wrap items-center gap-3 px-4 py-3 ${
+                    editandoID === b.barberoID ? 'ring-1 ring-gold-500/60' : ''
                   }`}
                 >
-                  {b.estado ? 'Activo' : 'Inactivo'}
-                </span>
-                {b.especialidad && (
-                  <span className="text-xs text-cream-200/50">{b.especialidad}</span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => editar(b)}
-                  className="ml-auto text-xs uppercase tracking-wider text-gold-300 transition hover:text-gold-200"
-                >
-                  Editar
-                </button>
-              </div>
-            ))}
+                  <img
+                    src={b.foto_url ? urlImagen(b.foto_url) : foto.src}
+                    srcSet={b.foto_url ? undefined : foto.srcSet}
+                    sizes="40px"
+                    alt={`${b.nombre} ${b.apellido}`}
+                    width="40"
+                    height="40"
+                    className="h-10 w-10 rounded-full object-cover ring-1 ring-white/10"
+                  />
+                  <div className="min-w-[12rem]">
+                    <p className="text-sm font-semibold text-cream-50">
+                      {b.nombre} {b.apellido}
+                    </p>
+                    <p className="text-xs text-cream-200/50">{b.correo}</p>
+                  </div>
+                  <span className="text-xs text-cream-200/60">Comisión {b.comision}%</span>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs uppercase tracking-wider ${
+                      b.estado
+                        ? 'bg-emerald-500/15 text-emerald-300'
+                        : 'bg-white/10 text-cream-200/60'
+                    }`}
+                  >
+                    {b.estado ? 'Activo' : 'Inactivo'}
+                  </span>
+                  {b.especialidad && (
+                    <span className="text-xs text-cream-200/50">{b.especialidad}</span>
+                  )}
+                  <div className="ml-auto flex items-center gap-3">
+                    <button
+                      type="button"
+                      disabled={subiendoFoto}
+                      title="JPG, PNG, WEBP o GIF · máx. 5 MB"
+                      onClick={() => {
+                        fotoDeRef.current = b.barberoID
+                        setFotoDe(b.barberoID)
+                        inputFoto.current?.click()
+                      }}
+                      className="text-xs uppercase tracking-wider text-cream-200/70 transition hover:text-gold-200 disabled:opacity-50"
+                    >
+                      {subiendoFoto && fotoDe === b.barberoID ? 'Subiendo…' : 'Foto'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => editar(b)}
+                      className="text-xs uppercase tracking-wider text-gold-300 transition hover:text-gold-200"
+                    >
+                      Editar
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
 

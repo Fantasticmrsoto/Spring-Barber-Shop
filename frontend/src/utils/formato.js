@@ -74,6 +74,22 @@ export function fechaHora(valor) {
 }
 
 /*
+ * Fecha y hora en el formato que quiere <input type="datetime-local">:
+ * "2026-11-02T15:00".
+ *
+ * La API manda la hora en UTC ("2026-11-02T19:00:00.000Z") pero la base de
+ * datos guarda la hora de pared, la del local (15:00). Para el input hay que
+ * volver a la hora local, que es la que ve el usuario; si se usara el texto
+ * tal cual, el input mostraría cuatro horas más.
+ */
+export function aInputFechaHora(valor) {
+  const d = new Date(valor)
+  if (Number.isNaN(d.getTime())) return ''
+  const dos = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}T${dos(d.getHours())}:${dos(d.getMinutes())}`
+}
+
+/*
  * Nombre de quien tiene la cita.
  *
  * Una cita puede ser de un cliente registrado (con cuenta) o de un invitado

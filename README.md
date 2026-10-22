@@ -95,6 +95,32 @@ crea un usuario desde la web.
 nube es Neon), y una cuenta creada en uno no aparece en el otro: hay que
 ejecutar el script en cada uno.
 
+## El panel de administración
+
+Entrando en `/admin` con una cuenta de administrador se llega al panel. Tiene
+diez pestañas y desde cada una se puede hacer todo lo que la API permite:
+
+| Pestaña | Qué se puede hacer |
+|---|---|
+| Resumen | Citas del día, ingresos del mes, ticket promedio, servicios más pedidos y ranking de barberos con su comisión |
+| Citas | Verlas todas, filtrarlas por estado y fecha, **moverlas de día u hora** y cambiar su estado (confirmar, completar, cancelar) |
+| Nueva cita | Agendar una cita para un cliente registrado o para alguien que llega sin cuenta |
+| Usuarios | Crear, editar (nombre, correo, teléfono, rol y contraseña), eliminar y dar de alta barberos |
+| Servicios | Crear, editar y eliminar el catálogo de servicios con su precio y duración |
+| Barberos | Dar de alta barberos, editar su comisión, ficha pública y estado, **cambiar su foto** y asignarles los servicios que hacen |
+| Horarios | Poner y quitar el horario laboral de cada barbero, día a día |
+| Reseñas | Verlas todas, borrarlas y registrar una en nombre de un cliente |
+| Pagos | Registrar un pago cobrado en el local, y aprobar o rechazar los pagos móviles con su comprobante |
+| Días no laborables | Añadir y quitar feriados y días de descanso |
+
+Dos detalles que suelen hacer falta:
+
+- La **foto de un barbero** se cambia desde la pestaña Barberos, con el botón
+  *Foto*. También puede hacerlo el propio barbero desde su panel.
+- **Reprogramar** una cita (la pestaña Citas) la mueve de día y hora. Se
+  comprueban las mismas reglas que al reservar: el horario del barbero, los
+  días de descanso, los feriados y que no se solape con otra cita.
+
 ## Abrir la web desde el móvil
 
 La web se sirve en `0.0.0.0:5173`, así que es accesible desde cualquier
