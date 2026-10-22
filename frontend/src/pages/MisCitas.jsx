@@ -12,7 +12,8 @@ export default function MisCitas() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
 
-  const modo = usuario.rol === 'cliente' ? 'cliente' : 'equipo'
+  const modo =
+    usuario.rol === 'cliente' ? 'cliente' : usuario.rol === 'barbero' ? 'barbero' : 'equipo'
 
   useEffect(() => {
     let activo = true
