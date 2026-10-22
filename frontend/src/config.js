@@ -5,8 +5,8 @@ export const CONTACTO = {
   telefonoWhatsApp: '584124370853',
   telefonoVisible: '+58 412-4370853',
   correo: 'hola@springbarber.com',
-  direccion: 'Cra. 00 #00-00, Ciudad',
-  mapaUrl: 'https://maps.app.goo.gl/bRkRzYhUH8iiJAJ2A?g_st=iw',
+  direccion: 'Spring Group Barber Shop, Valencia, Carabobo, Venezuela',
+  mapaUrl: 'https://maps.app.goo.gl/3wNVG66QWCdVYPjQ7',
 }
 
 export function enlaceWhatsApp(mensaje) {

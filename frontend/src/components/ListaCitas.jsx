@@ -24,8 +24,8 @@ const ETIQUETA = {
   cancelada: 'Cancelar',
 }
 
-// Enlaces del cliente para reprogramar/repetir una cita. Se exporta para reusarlo
-// en la tarjeta destacada de "Mis citas".
+// Enlaces del cliente para reprogramar/repetir una cita. Se exporta para poder
+// reusarlo en otros listados de citas del cliente.
 export function AccionesClienteCita({ cita, onCambio, setError }) {
   const puedeReprogramar = (cita.estado === 'pendiente' || cita.estado === 'confirmada') && cita.estado !== 'cancelacion_solicitada'
   // Ya no se muestra "Pagar" desde "Mis citas": si el pago queda pendiente
@@ -102,10 +102,9 @@ export function AccionesClienteCita({ cita, onCambio, setError }) {
   )
 }
 
-// modo: 'cliente' (solo puede cancelar) | 'equipo' (barbero/admin cambian estado)
-//       | 'barbero' (como 'equipo', pero sin los datos personales del cliente
-//         ni los del pago: el barbero solo necesita la hora, el servicio y el
-//         nombre de quien viene)
+// modo: 'cliente' (solo puede cancelar) | 'equipo' (el admin cambia estado y
+//       reprograma) | 'barbero' (solo lectura: el barbero únicamente consulta su
+//       agenda, sin los datos personales del cliente ni los del pago)
 //
 // `onEliminar` es opcional: si se pasa, la lista ofrece borrar la cita. Solo
 // el panel de administración lo usa, porque es el único sitio desde donde se
@@ -235,16 +234,17 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio, onElimin
               clase: 'bg-white/10 text-cream-200',
             }
             const acciones =
-              modo === 'equipo' || vistaBarbero
+              modo === 'equipo'
                 ? SIGUIENTES[cita.estado] ?? []
-                : puedeCancelarCliente(cita.estado)
+                : modo === 'cliente' && puedeCancelarCliente(cita.estado)
                   ? ['cancelada']
                   : []
 
             // El backend solo deja mover una cita que sigue en pie: una
-            // completada o cancelada ya no se reprograma.
+            // completada o cancelada ya no se reprograma. El barbero no puede
+            // reprogramar, así que la opción es exclusiva del administrador.
             const puedeReprogramar =
-              (modo === 'equipo' || vistaBarbero) &&
+              modo === 'equipo' &&
               (cita.estado === 'pendiente' || cita.estado === 'confirmada')
 
             // Solo el administrador aprueba o rechaza el reembolso de una

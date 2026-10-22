@@ -1,0 +1,381 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1940" height="1200" viewBox="0 0 1940 1200" font-family="Segoe UI, Arial, sans-serif">
+<defs><filter id="shadow" x="-5%" y="-5%" width="110%" height="110%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#1e1e24" flood-opacity="0.14"/></filter></defs>
+<rect width="1940" height="1200" fill="#ffffff"/>
+<text x="60" y="46" font-family="Georgia, serif" font-size="26" font-weight="bold" fill="#141417">Spring Barber Shop · Modelo de datos</text>
+<text x="60" y="78" font-size="13" fill="#6f6f6f">PostgreSQL 18.6 · esquema public · 10 tablas · 11 relaciones · generado a partir de las migraciones 000–012</text>
+<rect x="60" y="92" width="1820" height="1" fill="#e0d9c8"/>
+<polyline points="400,195 500,217" fill="none" stroke="#a08a5f" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="416.0755679219658" y1="205.70402335508777" x2="419.08363287941745" y2="192.03100082121654" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="480.91636712058255" y1="219.96899917878346" x2="483.9244320780342" y2="206.29597664491223" stroke="#a08a5f" stroke-width="1.7"/>
+<polyline points="650,390 650,490" fill="none" stroke="#a08a5f" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="643" y1="408" x2="657" y2="408" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="650" y1="478" x2="650" y2="490" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="650" y1="478" x2="642" y2="490" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="650" y1="478" x2="658" y2="490" stroke="#a08a5f" stroke-width="1.7"/>
+<polyline points="1000,239 920,239 920,579 840,579" fill="none" stroke="#a08a5f" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="982" y1="232" x2="982" y2="246" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="852" y1="579" x2="840" y2="579" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="852" y1="579" x2="840" y2="571" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="852" y1="579" x2="840" y2="587" stroke="#a08a5f" stroke-width="1.7"/>
+<polyline points="400,327 460,327 460,467 1000,467" fill="none" stroke="#a08a5f" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="418" y1="334" x2="418" y2="320" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="988" y1="467" x2="1000" y2="467" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="988" y1="467" x2="1000" y2="475" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="988" y1="467" x2="1000" y2="459" stroke="#a08a5f" stroke-width="1.7"/>
+<circle cx="974" cy="467" r="4.5" fill="#ffffff" stroke="#a08a5f" stroke-width="1.7"/>
+<polyline points="840,371 960,371 960,489 1000,489" fill="none" stroke="#a08a5f" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="858" y1="378" x2="858" y2="364" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="988" y1="489" x2="1000" y2="489" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="988" y1="489" x2="1000" y2="497" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="988" y1="489" x2="1000" y2="481" stroke="#a08a5f" stroke-width="1.7"/>
+<polyline points="1170,302 1170,400" fill="none" stroke="#a08a5f" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="1163" y1="320" x2="1177" y2="320" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="1170" y1="388" x2="1170" y2="400" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="1170" y1="388" x2="1162" y2="400" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="1170" y1="388" x2="1178" y2="400" stroke="#a08a5f" stroke-width="1.7"/>
+<polyline points="840,305 880,305 880,747 840,747" fill="none" stroke="#a08a5f" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="858" y1="312" x2="858" y2="298" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="852" y1="747" x2="840" y2="747" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="852" y1="747" x2="840" y2="739" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="852" y1="747" x2="840" y2="755" stroke="#a08a5f" stroke-width="1.7"/>
+<polyline points="840,283 940,283 940,997 1000,997" fill="none" stroke="#a08a5f" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="858" y1="290" x2="858" y2="276" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="988" y1="997" x2="1000" y2="997" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="988" y1="997" x2="1000" y2="1005" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="988" y1="997" x2="1000" y2="989" stroke="#a08a5f" stroke-width="1.7"/>
+<polyline points="400,305 430,305 430,900 960,900 960,1019 1000,1019" fill="none" stroke="#a08a5f" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="418" y1="312" x2="418" y2="298" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="988" y1="1019" x2="1000" y2="1019" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="988" y1="1019" x2="1000" y2="1027" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="988" y1="1019" x2="1000" y2="1011" stroke="#a08a5f" stroke-width="1.7"/>
+<polyline points="230,150 230,110 1840,110 1840,400" fill="none" stroke="#a08a5f" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="237" y1="132" x2="223" y2="132" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="1840" y1="388" x2="1840" y2="400" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="1840" y1="388" x2="1832" y2="400" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="1840" y1="388" x2="1848" y2="400" stroke="#a08a5f" stroke-width="1.7"/>
+<circle cx="1840" cy="374" r="4.5" fill="#ffffff" stroke="#a08a5f" stroke-width="1.7"/>
+<polyline points="1380,599 1480,599" fill="none" stroke="#a08a5f" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="1398" y1="606" x2="1398" y2="592" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="1468" y1="599" x2="1480" y2="599" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="1468" y1="599" x2="1480" y2="607" stroke="#a08a5f" stroke-width="1.7"/>
+<line x1="1468" y1="599" x2="1480" y2="591" stroke="#a08a5f" stroke-width="1.7"/>
+<circle cx="1454" cy="599" r="4.5" fill="#ffffff" stroke="#a08a5f" stroke-width="1.7"/>
+<g filter="url(#shadow)">
+<rect x="60" y="150" width="340" height="196" rx="7" fill="#ffffff" stroke="#c9bfa8" stroke-width="1"/>
+<path d="M 60 184 L 60 157 Q 60 150 67 150 L 393 150 Q 400 150 400 157 L 400 184 Z" fill="#141417"/>
+<text x="74" y="173" font-size="13" font-weight="bold" fill="#f3efe6" letter-spacing="0.7">USUARIO</text>
+<rect x="60" y="182" width="340" height="2" fill="#c8a24a"/>
+<rect x="61" y="184" width="338" height="22" fill="#faf8f3"/>
+<text x="70" y="199" font-size="8.5" font-weight="bold" fill="#7d612a">PK</text>
+<text x="112" y="199" font-size="10.8" fill="#242424">usuarioID</text>
+<text x="390" y="199" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<text x="112" y="221" font-size="10.8" fill="#242424">nombre</text>
+<text x="390" y="221" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<rect x="61" y="228" width="338" height="22" fill="#faf8f3"/>
+<text x="112" y="243" font-size="10.8" fill="#242424">apellido</text>
+<text x="390" y="243" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<text x="70" y="265" font-size="8.5" font-weight="bold" fill="#6f6f6f">UQ</text>
+<text x="112" y="265" font-size="10.8" fill="#242424">correo</text>
+<text x="390" y="265" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<rect x="61" y="272" width="338" height="22" fill="#faf8f3"/>
+<text x="112" y="287" font-size="10.8" fill="#242424">telefono</text>
+<text x="390" y="287" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<text x="112" y="309" font-size="10.8" fill="#242424">clave</text>
+<text x="390" y="309" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<rect x="61" y="316" width="338" height="22" fill="#faf8f3"/>
+<text x="112" y="331" font-size="10.8" fill="#242424">rol</text>
+<text x="390" y="331" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<rect x="60" y="150" width="340" height="196" rx="7" fill="none" stroke="#c9bfa8" stroke-width="1"/>
+</g>
+<g filter="url(#shadow)">
+<rect x="500" y="150" width="340" height="240" rx="7" fill="#ffffff" stroke="#c9bfa8" stroke-width="1"/>
+<path d="M 500 184 L 500 157 Q 500 150 507 150 L 833 150 Q 840 150 840 157 L 840 184 Z" fill="#141417"/>
+<text x="514" y="173" font-size="13" font-weight="bold" fill="#f3efe6" letter-spacing="0.7">BARBERO</text>
+<rect x="500" y="182" width="340" height="2" fill="#c8a24a"/>
+<rect x="501" y="184" width="338" height="22" fill="#faf8f3"/>
+<text x="510" y="199" font-size="8.5" font-weight="bold" fill="#7d612a">PK</text>
+<text x="552" y="199" font-size="10.8" fill="#242424">barberoID</text>
+<text x="830" y="199" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<text x="510" y="221" font-size="8.5" font-weight="bold" fill="#8a5a2b">FK·UQ</text>
+<text x="552" y="221" font-size="10.8" fill="#242424">usuarioID</text>
+<text x="830" y="221" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<rect x="501" y="228" width="338" height="22" fill="#faf8f3"/>
+<text x="552" y="243" font-size="10.8" fill="#242424">comision</text>
+<text x="830" y="243" font-size="9.5" fill="#9a9a9a" text-anchor="end">num</text>
+<text x="552" y="265" font-size="10.8" fill="#242424">estado</text>
+<text x="830" y="265" font-size="9.5" fill="#9a9a9a" text-anchor="end">bool</text>
+<rect x="501" y="272" width="338" height="22" fill="#faf8f3"/>
+<text x="552" y="287" font-size="10.8" fill="#242424">descripcion</text>
+<text x="830" y="287" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<text x="552" y="309" font-size="10.8" fill="#242424">especialidad</text>
+<text x="830" y="309" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<rect x="501" y="316" width="338" height="22" fill="#faf8f3"/>
+<text x="552" y="331" font-size="10.8" fill="#242424">instagram</text>
+<text x="830" y="331" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<text x="552" y="353" font-size="10.8" fill="#242424">telefono_contacto</text>
+<text x="830" y="353" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<rect x="501" y="360" width="338" height="22" fill="#faf8f3"/>
+<text x="552" y="375" font-size="10.8" fill="#242424">foto_url</text>
+<text x="830" y="375" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<rect x="500" y="150" width="340" height="240" rx="7" fill="none" stroke="#c9bfa8" stroke-width="1"/>
+</g>
+<g filter="url(#shadow)">
+<rect x="1000" y="150" width="340" height="152" rx="7" fill="#ffffff" stroke="#c9bfa8" stroke-width="1"/>
+<path d="M 1000 184 L 1000 157 Q 1000 150 1007 150 L 1333 150 Q 1340 150 1340 157 L 1340 184 Z" fill="#141417"/>
+<text x="1014" y="173" font-size="13" font-weight="bold" fill="#f3efe6" letter-spacing="0.7">SERVICIOS</text>
+<rect x="1000" y="182" width="340" height="2" fill="#c8a24a"/>
+<rect x="1001" y="184" width="338" height="22" fill="#faf8f3"/>
+<text x="1010" y="199" font-size="8.5" font-weight="bold" fill="#7d612a">PK</text>
+<text x="1052" y="199" font-size="10.8" fill="#242424">serviciosID</text>
+<text x="1330" y="199" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<text x="1052" y="221" font-size="10.8" fill="#242424">nombre</text>
+<text x="1330" y="221" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<rect x="1001" y="228" width="338" height="22" fill="#faf8f3"/>
+<text x="1052" y="243" font-size="10.8" fill="#242424">descripcion</text>
+<text x="1330" y="243" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<text x="1052" y="265" font-size="10.8" fill="#242424">precio</text>
+<text x="1330" y="265" font-size="9.5" fill="#9a9a9a" text-anchor="end">num</text>
+<rect x="1001" y="272" width="338" height="22" fill="#faf8f3"/>
+<text x="1052" y="287" font-size="10.8" fill="#242424">duracion_minutos</text>
+<text x="1330" y="287" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<rect x="1000" y="150" width="340" height="152" rx="7" fill="none" stroke="#c9bfa8" stroke-width="1"/>
+</g>
+<g filter="url(#shadow)">
+<rect x="1480" y="150" width="340" height="86" rx="7" fill="#ffffff" stroke="#c9bfa8" stroke-width="1"/>
+<path d="M 1480 184 L 1480 157 Q 1480 150 1487 150 L 1813 150 Q 1820 150 1820 157 L 1820 184 Z" fill="#141417"/>
+<text x="1494" y="173" font-size="13" font-weight="bold" fill="#f3efe6" letter-spacing="0.7">SCHEMA_MIGRATIONS</text>
+<rect x="1480" y="182" width="340" height="2" fill="#c8a24a"/>
+<rect x="1481" y="184" width="338" height="22" fill="#faf8f3"/>
+<text x="1490" y="199" font-size="8.5" font-weight="bold" fill="#7d612a">PK</text>
+<text x="1532" y="199" font-size="10.8" fill="#242424">nombre</text>
+<text x="1810" y="199" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<text x="1532" y="221" font-size="10.8" fill="#242424">aplicada_en</text>
+<text x="1810" y="221" font-size="9.5" fill="#9a9a9a" text-anchor="end">timestamp</text>
+<rect x="1480" y="150" width="340" height="86" rx="7" fill="none" stroke="#c9bfa8" stroke-width="1"/>
+</g>
+<g filter="url(#shadow)">
+<rect x="500" y="490" width="340" height="126" rx="7" fill="#ffffff" stroke="#c9bfa8" stroke-width="1"/>
+<path d="M 500 524 L 500 497 Q 500 490 507 490 L 833 490 Q 840 490 840 497 L 840 524 Z" fill="#141417"/>
+<text x="514" y="513" font-size="13" font-weight="bold" fill="#f3efe6" letter-spacing="0.7">BARBERO_SERVICIO</text>
+<rect x="500" y="522" width="340" height="2" fill="#c8a24a"/>
+<rect x="501" y="524" width="338" height="22" fill="#faf8f3"/>
+<text x="510" y="539" font-size="8.5" font-weight="bold" fill="#7d612a">PK</text>
+<text x="552" y="539" font-size="10.8" fill="#242424">barbero_servicioID</text>
+<text x="830" y="539" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<text x="510" y="561" font-size="8.5" font-weight="bold" fill="#8a5a2b">FK</text>
+<text x="552" y="561" font-size="10.8" fill="#242424">barberoID</text>
+<text x="830" y="561" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<rect x="501" y="568" width="338" height="22" fill="#faf8f3"/>
+<text x="510" y="583" font-size="8.5" font-weight="bold" fill="#8a5a2b">FK</text>
+<text x="552" y="583" font-size="10.8" fill="#242424">servicioID</text>
+<text x="830" y="583" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<text x="512" y="608" font-size="9" font-style="italic" fill="#8a7a5a">UQ (barberoID, servicioID)</text>
+<rect x="500" y="490" width="340" height="126" rx="7" fill="none" stroke="#c9bfa8" stroke-width="1"/>
+</g>
+<g filter="url(#shadow)">
+<rect x="500" y="680" width="340" height="170" rx="7" fill="#ffffff" stroke="#c9bfa8" stroke-width="1"/>
+<path d="M 500 714 L 500 687 Q 500 680 507 680 L 833 680 Q 840 680 840 687 L 840 714 Z" fill="#141417"/>
+<text x="514" y="703" font-size="13" font-weight="bold" fill="#f3efe6" letter-spacing="0.7">HORARIO_LABORAL</text>
+<rect x="500" y="712" width="340" height="2" fill="#c8a24a"/>
+<rect x="501" y="714" width="338" height="22" fill="#faf8f3"/>
+<text x="510" y="729" font-size="8.5" font-weight="bold" fill="#7d612a">PK</text>
+<text x="552" y="729" font-size="10.8" fill="#242424">horarioID</text>
+<text x="830" y="729" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<text x="510" y="751" font-size="8.5" font-weight="bold" fill="#8a5a2b">FK</text>
+<text x="552" y="751" font-size="10.8" fill="#242424">barberoID</text>
+<text x="830" y="751" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<rect x="501" y="758" width="338" height="22" fill="#faf8f3"/>
+<text x="552" y="773" font-size="10.8" fill="#242424">dia_semana</text>
+<text x="830" y="773" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<text x="552" y="795" font-size="10.8" fill="#242424">hora_inicio</text>
+<text x="830" y="795" font-size="9.5" fill="#9a9a9a" text-anchor="end">time</text>
+<rect x="501" y="802" width="338" height="22" fill="#faf8f3"/>
+<text x="552" y="817" font-size="10.8" fill="#242424">hora_fin</text>
+<text x="830" y="817" font-size="9.5" fill="#9a9a9a" text-anchor="end">time</text>
+<text x="512" y="842" font-size="9" font-style="italic" fill="#8a7a5a">UQ (barberoID, dia_semana)</text>
+<rect x="500" y="680" width="340" height="170" rx="7" fill="none" stroke="#c9bfa8" stroke-width="1"/>
+</g>
+<g filter="url(#shadow)">
+<rect x="1000" y="400" width="380" height="460" rx="7" fill="#ffffff" stroke="#c9bfa8" stroke-width="1"/>
+<path d="M 1000 434 L 1000 407 Q 1000 400 1007 400 L 1373 400 Q 1380 400 1380 407 L 1380 434 Z" fill="#141417"/>
+<text x="1014" y="423" font-size="13" font-weight="bold" fill="#f3efe6" letter-spacing="0.7">CITA</text>
+<rect x="1000" y="432" width="380" height="2" fill="#c8a24a"/>
+<rect x="1001" y="434" width="378" height="22" fill="#faf8f3"/>
+<text x="1010" y="449" font-size="8.5" font-weight="bold" fill="#7d612a">PK</text>
+<text x="1052" y="449" font-size="10.8" fill="#242424">citaID</text>
+<text x="1370" y="449" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<text x="1010" y="471" font-size="8.5" font-weight="bold" fill="#8a5a2b">FK</text>
+<text x="1052" y="471" font-size="10.8" fill="#242424">clienteID</text>
+<text x="1370" y="471" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<rect x="1001" y="478" width="378" height="22" fill="#faf8f3"/>
+<text x="1010" y="493" font-size="8.5" font-weight="bold" fill="#8a5a2b">FK</text>
+<text x="1052" y="493" font-size="10.8" fill="#242424">barberoID</text>
+<text x="1370" y="493" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<text x="1010" y="515" font-size="8.5" font-weight="bold" fill="#8a5a2b">FK</text>
+<text x="1052" y="515" font-size="10.8" fill="#242424">servicioID</text>
+<text x="1370" y="515" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<rect x="1001" y="522" width="378" height="22" fill="#faf8f3"/>
+<text x="1052" y="537" font-size="10.8" fill="#242424">fecha_inicio</text>
+<text x="1370" y="537" font-size="9.5" fill="#9a9a9a" text-anchor="end">timestamp</text>
+<text x="1052" y="559" font-size="10.8" fill="#242424">fecha_fin</text>
+<text x="1370" y="559" font-size="9.5" fill="#9a9a9a" text-anchor="end">timestamp</text>
+<rect x="1001" y="566" width="378" height="22" fill="#faf8f3"/>
+<text x="1052" y="581" font-size="10.8" fill="#242424">estado</text>
+<text x="1370" y="581" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<text x="1052" y="603" font-size="10.8" fill="#242424">es_invitado</text>
+<text x="1370" y="603" font-size="9.5" fill="#9a9a9a" text-anchor="end">bool</text>
+<rect x="1001" y="610" width="378" height="22" fill="#faf8f3"/>
+<text x="1052" y="625" font-size="10.8" fill="#242424">contacto_nombre</text>
+<text x="1370" y="625" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<text x="1052" y="647" font-size="10.8" fill="#242424">contacto_telefono</text>
+<text x="1370" y="647" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<rect x="1001" y="654" width="378" height="22" fill="#faf8f3"/>
+<text x="1052" y="669" font-size="10.8" fill="#242424">codigo</text>
+<text x="1370" y="669" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<text x="1052" y="691" font-size="10.8" fill="#242424">pago_metodo</text>
+<text x="1370" y="691" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<rect x="1001" y="698" width="378" height="22" fill="#faf8f3"/>
+<text x="1052" y="713" font-size="10.8" fill="#242424">pago_estado</text>
+<text x="1370" y="713" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<text x="1052" y="735" font-size="10.8" fill="#242424">motivo_pago</text>
+<text x="1370" y="735" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<rect x="1001" y="742" width="378" height="22" fill="#faf8f3"/>
+<text x="1052" y="757" font-size="10.8" fill="#242424">cancelacion_motivo</text>
+<text x="1370" y="757" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<text x="1052" y="779" font-size="10.8" fill="#242424">cancelacion_solicitada_en</text>
+<text x="1370" y="779" font-size="9.5" fill="#9a9a9a" text-anchor="end">timestamp</text>
+<rect x="1001" y="786" width="378" height="22" fill="#faf8f3"/>
+<text x="1052" y="801" font-size="10.8" fill="#242424">cancelacion_reembolsada</text>
+<text x="1370" y="801" font-size="9.5" fill="#9a9a9a" text-anchor="end">bool</text>
+<text x="1052" y="823" font-size="10.8" fill="#242424">cancelacion_reembolsada_en</text>
+<text x="1370" y="823" font-size="9.5" fill="#9a9a9a" text-anchor="end">timestamp</text>
+<rect x="1001" y="830" width="378" height="22" fill="#faf8f3"/>
+<text x="1052" y="845" font-size="10.8" fill="#242424">cancelacion_rechazada_motivo</text>
+<text x="1370" y="845" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<rect x="1000" y="400" width="380" height="460" rx="7" fill="none" stroke="#c9bfa8" stroke-width="1"/>
+</g>
+<g filter="url(#shadow)">
+<rect x="1480" y="400" width="380" height="306" rx="7" fill="#ffffff" stroke="#c9bfa8" stroke-width="1"/>
+<path d="M 1480 434 L 1480 407 Q 1480 400 1487 400 L 1853 400 Q 1860 400 1860 407 L 1860 434 Z" fill="#141417"/>
+<text x="1494" y="423" font-size="13" font-weight="bold" fill="#f3efe6" letter-spacing="0.7">TRANSACCIONES</text>
+<rect x="1480" y="432" width="380" height="2" fill="#c8a24a"/>
+<rect x="1481" y="434" width="378" height="22" fill="#faf8f3"/>
+<text x="1490" y="449" font-size="8.5" font-weight="bold" fill="#7d612a">PK</text>
+<text x="1532" y="449" font-size="10.8" fill="#242424">transaccionID</text>
+<text x="1850" y="449" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<text x="1490" y="471" font-size="8.5" font-weight="bold" fill="#8a5a2b">FK</text>
+<text x="1532" y="471" font-size="10.8" fill="#242424">usuarioID</text>
+<text x="1850" y="471" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<rect x="1481" y="478" width="378" height="22" fill="#faf8f3"/>
+<text x="1532" y="493" font-size="10.8" fill="#242424">tipo_movimiento</text>
+<text x="1850" y="493" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<text x="1532" y="515" font-size="10.8" fill="#242424">monto</text>
+<text x="1850" y="515" font-size="9.5" fill="#9a9a9a" text-anchor="end">num</text>
+<rect x="1481" y="522" width="378" height="22" fill="#faf8f3"/>
+<text x="1532" y="537" font-size="10.8" fill="#242424">saldo_restante</text>
+<text x="1850" y="537" font-size="9.5" fill="#9a9a9a" text-anchor="end">num</text>
+<text x="1532" y="559" font-size="10.8" fill="#242424">referencia_pago</text>
+<text x="1850" y="559" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<rect x="1481" y="566" width="378" height="22" fill="#faf8f3"/>
+<text x="1532" y="581" font-size="10.8" fill="#242424">fecha_creacion</text>
+<text x="1850" y="581" font-size="9.5" fill="#9a9a9a" text-anchor="end">timestamp</text>
+<text x="1490" y="603" font-size="8.5" font-weight="bold" fill="#8a5a2b">FK</text>
+<text x="1532" y="603" font-size="10.8" fill="#242424">citaID</text>
+<text x="1850" y="603" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<rect x="1481" y="610" width="378" height="22" fill="#faf8f3"/>
+<text x="1532" y="625" font-size="10.8" fill="#242424">metodo_pago</text>
+<text x="1850" y="625" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<text x="1532" y="647" font-size="10.8" fill="#242424">estado</text>
+<text x="1850" y="647" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<rect x="1481" y="654" width="378" height="22" fill="#faf8f3"/>
+<text x="1532" y="669" font-size="10.8" fill="#242424">comprobante_url</text>
+<text x="1850" y="669" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<text x="1532" y="691" font-size="10.8" fill="#242424">motivo_rechazo</text>
+<text x="1850" y="691" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<rect x="1480" y="400" width="380" height="306" rx="7" fill="none" stroke="#c9bfa8" stroke-width="1"/>
+</g>
+<g filter="url(#shadow)">
+<rect x="60" y="690" width="340" height="108" rx="7" fill="#ffffff" stroke="#c9bfa8" stroke-width="1"/>
+<path d="M 60 724 L 60 697 Q 60 690 67 690 L 393 690 Q 400 690 400 697 L 400 724 Z" fill="#141417"/>
+<text x="74" y="713" font-size="13" font-weight="bold" fill="#f3efe6" letter-spacing="0.7">FERIADO</text>
+<rect x="60" y="722" width="340" height="2" fill="#c8a24a"/>
+<rect x="61" y="724" width="338" height="22" fill="#faf8f3"/>
+<text x="70" y="739" font-size="8.5" font-weight="bold" fill="#7d612a">PK</text>
+<text x="112" y="739" font-size="10.8" fill="#242424">fecha</text>
+<text x="390" y="739" font-size="9.5" fill="#9a9a9a" text-anchor="end">date</text>
+<text x="112" y="761" font-size="10.8" fill="#242424">nombre</text>
+<text x="390" y="761" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<rect x="61" y="768" width="338" height="22" fill="#faf8f3"/>
+<text x="112" y="783" font-size="10.8" fill="#242424">tipo</text>
+<text x="390" y="783" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<rect x="60" y="690" width="340" height="108" rx="7" fill="none" stroke="#c9bfa8" stroke-width="1"/>
+</g>
+<g filter="url(#shadow)">
+<rect x="1000" y="930" width="340" height="192" rx="7" fill="#ffffff" stroke="#c9bfa8" stroke-width="1"/>
+<path d="M 1000 964 L 1000 937 Q 1000 930 1007 930 L 1333 930 Q 1340 930 1340 937 L 1340 964 Z" fill="#141417"/>
+<text x="1014" y="953" font-size="13" font-weight="bold" fill="#f3efe6" letter-spacing="0.7">RESENA</text>
+<rect x="1000" y="962" width="340" height="2" fill="#c8a24a"/>
+<rect x="1001" y="964" width="338" height="22" fill="#faf8f3"/>
+<text x="1010" y="979" font-size="8.5" font-weight="bold" fill="#7d612a">PK</text>
+<text x="1052" y="979" font-size="10.8" fill="#242424">resenaID</text>
+<text x="1330" y="979" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<text x="1010" y="1001" font-size="8.5" font-weight="bold" fill="#8a5a2b">FK</text>
+<text x="1052" y="1001" font-size="10.8" fill="#242424">barberoID</text>
+<text x="1330" y="1001" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<rect x="1001" y="1008" width="338" height="22" fill="#faf8f3"/>
+<text x="1010" y="1023" font-size="8.5" font-weight="bold" fill="#8a5a2b">FK</text>
+<text x="1052" y="1023" font-size="10.8" fill="#242424">autorID</text>
+<text x="1330" y="1023" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<text x="1052" y="1045" font-size="10.8" fill="#242424">calificacion</text>
+<text x="1330" y="1045" font-size="9.5" fill="#9a9a9a" text-anchor="end">int</text>
+<rect x="1001" y="1052" width="338" height="22" fill="#faf8f3"/>
+<text x="1052" y="1067" font-size="10.8" fill="#242424">comentario</text>
+<text x="1330" y="1067" font-size="9.5" fill="#9a9a9a" text-anchor="end">text</text>
+<text x="1052" y="1089" font-size="10.8" fill="#242424">fecha_creacion</text>
+<text x="1330" y="1089" font-size="9.5" fill="#9a9a9a" text-anchor="end">timestamp</text>
+<text x="1012" y="1114" font-size="9" font-style="italic" fill="#8a7a5a">UQ (barberoID, autorID)</text>
+<rect x="1000" y="930" width="340" height="192" rx="7" fill="none" stroke="#c9bfa8" stroke-width="1"/>
+</g>
+<text x="418" y="184" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">1</text>
+<text x="508" y="232" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">1</text>
+<text x="662" y="414" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">1</text>
+<text x="662" y="478" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">N</text>
+<text x="962" y="250" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">1</text>
+<text x="852" y="568" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">N</text>
+<text x="414" y="316" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">0..1</text>
+<text x="974" y="457" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">N</text>
+<text x="858" y="360" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">1</text>
+<text x="974" y="479" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">N</text>
+<text x="1182" y="332" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">1</text>
+<text x="1182" y="392" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">N</text>
+<text x="856" y="294" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">1</text>
+<text x="852" y="736" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">N</text>
+<text x="856" y="272" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">1</text>
+<text x="974" y="987" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">N</text>
+<text x="414" y="294" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">1</text>
+<text x="974" y="1009" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">N</text>
+<text x="244" y="140" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">0..1</text>
+<text x="1825" y="392" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">N</text>
+<text x="1400" y="588" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">0..1</text>
+<text x="1452" y="588" font-size="10.5" font-weight="bold" fill="#6b5a35" paint-order="stroke" stroke="#ffffff" stroke-width="3.5">N</text>
+<rect x="1400" y="760" width="470" height="322" rx="7" fill="#faf8f3" stroke="#e0d9c8"/>
+<text x="1422" y="790" font-family="Georgia, serif" font-size="14" font-weight="bold" fill="#141417">Leyenda</text>
+<rect x="1422" y="802" width="426" height="1" fill="#c8a24a"/>
+<text x="1426" y="830" font-size="11" font-weight="bold" fill="#7d612a">PK</text>
+<text x="1452" y="830" font-size="10.8" fill="#3d3d3d">clave primaria</text>
+<text x="1426" y="853" font-size="11" font-weight="bold" fill="#8a5a2b">FK</text>
+<text x="1452" y="853" font-size="10.8" fill="#3d3d3d">clave foránea</text>
+<text x="1426" y="876" font-size="11" font-weight="bold" fill="#6f6f6f">UQ</text>
+<text x="1452" y="876" font-size="10.8" fill="#3d3d3d">valor único (si hay varias, la restricción es compuesta)</text>
+<text x="1426" y="899" font-size="11" font-weight="bold" fill="#a08a5f">○</text>
+<text x="1452" y="899" font-size="10.8" fill="#3d3d3d">participación opcional (la clave foránea admite nulos)</text>
+<text x="1426" y="922" font-size="11" font-weight="bold" fill="#6f6f6f">1</text>
+<text x="1452" y="922" font-size="10.8" fill="#3d3d3d">lado "uno" de la relación</text>
+<text x="1426" y="945" font-size="11" font-weight="bold" fill="#6f6f6f">N</text>
+<text x="1452" y="945" font-size="10.8" fill="#3d3d3d">lado "muchos" (pie de gallo)</text>
+<text x="1422" y="1010" font-size="10.5" fill="#5a5a5a">Tablas sin relaciones:</text>
+<text x="1422" y="1028" font-size="10.5" fill="#5a5a5a">· feriado: días no laborables (clave primaria: fecha)</text>
+<text x="1422" y="1046" font-size="10.5" fill="#5a5a5a">· schema_migrations: control de migraciones aplicadas</text>
+<text x="1422" y="1068" font-size="9.5" font-style="italic" fill="#8a7a5a">Fuente: 13 migraciones (000–012) · PostgreSQL 18.6</text>
+</svg>

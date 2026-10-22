@@ -2,6 +2,7 @@ import Navbar from '../components/Navbar'
 import Hero from '../components/Hero'
 import Servicios from '../components/Servicios'
 import Barberos from '../components/Barberos'
+import UbicacionContacto from '../components/UbicacionContacto'
 import Footer from '../components/Footer'
 import WhatsAppFab from '../components/WhatsAppFab'
 
@@ -13,6 +14,7 @@ export default function Landing() {
         <Hero />
         <Servicios />
         <Barberos />
+        <UbicacionContacto />
       </main>
       <Footer />
       <WhatsAppFab />

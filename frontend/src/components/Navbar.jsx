@@ -7,7 +7,7 @@ import MenuMovil, { IconoHamburguesa, enlaceMenu } from './MenuMovil'
 const SECCIONES = [
   { etiqueta: 'Servicios', ancla: 'servicios' },
   { etiqueta: 'Barberos', ancla: 'barberos' },
-  { etiqueta: 'Contacto', ancla: 'contacto' },
+  { etiqueta: 'Contacto', ancla: 'ubicacion' },
 ]
 
 export default function Navbar() {

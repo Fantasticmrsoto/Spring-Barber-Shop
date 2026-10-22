@@ -795,10 +795,11 @@ const cancelarCitaPublica = async (req, res) => {
 /*
  * 8. Reprogramar una cita (cambiarle la fecha y la hora)
  *
- * La web ofrece "Reprogramar" tanto al cliente (desde "Mis citas") como al
- * administrador. Pasa por las mismas comprobaciones que una reserva nueva: la
- * nueva hora tiene que estar dentro del horario laboral, no puede ser un día
- * de descanso ni un feriado, y no puede cruzarse con otra cita.
+ * La web ofrece "Reprogramar" al cliente (desde "Mis citas") y al
+ * administrador. El barbero solo consulta su agenda. Pasa por las mismas
+ * comprobaciones que una reserva nueva: la nueva hora tiene que estar dentro
+ * del horario laboral, no puede ser un día de descanso ni un feriado, y no
+ * puede cruzarse con otra cita.
  */
 const reprogramarCita = async (req, res) => {
   const citaId = idValido(req.params.id);
@@ -825,10 +826,8 @@ const reprogramarCita = async (req, res) => {
 
   try {
     const actual = await db.query(
-      `SELECT c."citaID", c."clienteID", c."barberoID", c."servicioID", c.estado,
-              b."usuarioID" AS barbero_usuarioID
+      `SELECT c."citaID", c."clienteID", c."barberoID", c."servicioID", c.estado
        FROM cita c
-       JOIN barbero b ON b."barberoID" = c."barberoID"
        WHERE c."citaID" = $1`,
       [citaId]
     );
@@ -847,11 +846,10 @@ const reprogramarCita = async (req, res) => {
     }
 
     // Solo se reprograma la cita de uno mismo (o cualquiera, si es el
-    // administrador). El barbero puede reprogramar las de su agenda.
+    // administrador). El barbero solo consulta su agenda, no la modifica.
     const esDueña = cita.clienteID !== null && cita.clienteID === usuarioId;
-    const esSuAgenda = cita.barbero_usuarioID === usuarioId;
 
-    if (rol !== 'administrador' && !esDueña && !esSuAgenda) {
+    if (rol !== 'administrador' && !esDueña) {
       return res.status(403).json({
         ok: false,
         message: 'No tienes permisos para reprogramar esta cita'
@@ -900,7 +898,7 @@ const reprogramarCita = async (req, res) => {
 // roles tienen los mismos derechos:
 //
 //   - **administrador**: cualquier estado, en cualquier cita.
-//   - **barbero**: cualquier estado, pero solo en las citas de su agenda.
+//   - **barbero**: solo consulta su agenda; no puede cambiar estados.
 //   - **cliente**: solo puede **cancelar** una cita suya. La web le muestra el
 //     botón "Cancelar" en "Mis citas" (components/ListaCitas.jsx), así que sin
 //     esta excepción ese botón siempre fallaría con un 403.
@@ -928,12 +926,9 @@ const actualizarEstadoCita = async (req, res) => {
   const usuarioId = req.usuario?.usuarioID;
 
   try {
-    // La cita se carga con el usuario de su barbero para poder comprobar de
-    // quién es la agenda.
     const actual = await db.query(
-      `SELECT c."citaID", c."clienteID", b."usuarioID" AS barbero_usuarioID
+      `SELECT c."citaID", c."clienteID"
        FROM cita c
-       JOIN barbero b ON b."barberoID" = c."barberoID"
        WHERE c."citaID" = $1`,
       [citaId]
     );
@@ -942,7 +937,7 @@ const actualizarEstadoCita = async (req, res) => {
       return res.status(404).json({ ok: false, message: 'Cita no encontrada' });
     }
 
-    const { clienteID, barbero_usuarioID: barberoUsuarioID } = actual.rows[0];
+    const { clienteID } = actual.rows[0];
 
     if (rol === 'cliente') {
       if (estado !== 'cancelada') {
@@ -958,12 +953,10 @@ const actualizarEstadoCita = async (req, res) => {
         });
       }
     } else if (rol === 'barbero') {
-      if (barberoUsuarioID !== usuarioId) {
-        return res.status(403).json({
-          ok: false,
-          message: 'Solo puedes cambiar el estado de las citas de tu agenda'
-        });
-      }
+      return res.status(403).json({
+        ok: false,
+        message: 'El barbero solo puede consultar su agenda'
+      });
     }
 
     const resultado = await db.query(
@@ -1004,9 +997,8 @@ const solicitarCancelacionCita = async (req, res) => {
 
   try {
     const actual = await db.query(
-      `SELECT c."citaID", c."clienteID", c.estado, b."usuarioID" AS barbero_usuarioID
+      `SELECT c."citaID", c."clienteID", c.estado
        FROM cita c
-       JOIN barbero b ON b."barberoID" = c."barberoID"
        WHERE c."citaID" = $1`,
       [citaId],
     );
@@ -1030,9 +1022,7 @@ const solicitarCancelacionCita = async (req, res) => {
         return res.status(403).json({ ok: false, message: 'Solo puedes cancelar tus propias citas' });
       }
     } else if (rol === 'barbero') {
-      if (cita.barbero_usuarioID !== usuarioId) {
-        return res.status(403).json({ ok: false, message: 'Solo puedes cancelar las citas de tu agenda' });
-      }
+      return res.status(403).json({ ok: false, message: 'El barbero solo puede consultar su agenda' });
     }
 
     const motivoTexto = typeof motivo === 'string' ? motivo.trim() : null;

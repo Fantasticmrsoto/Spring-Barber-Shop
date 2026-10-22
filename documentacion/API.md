@@ -77,7 +77,7 @@ de la API, pero conviene saberlo al comparar con la base de datos.
 | Rol | Puede |
 |---|---|
 | `cliente` | Registrarse, agendar citas, verlas y cancelar las suyas |
-| `barbero` | Lo de cliente + cambiar el estado de las citas de su agenda, gestionar **su** horario y **sus** servicios |
+| `barbero` | Lo de cliente + consultar su agenda (solo lectura) y gestionar **su** horario y **sus** servicios |
 | `administrador` | Todo lo anterior + el libro de saldo (`/api/transacciones`), el catálogo, las fichas de los barberos y el listado de usuarios |
 
 **Permisos que dependen de *de quién* son los datos.** En varias rutas el rol
@@ -664,9 +664,10 @@ solapamiento), excluyendo la propia cita del cruce.
 { "fecha_hora": "2026-10-12T10:00:00" }
 ```
 
-Quién puede reprogramar: el `administrador` (cualquiera), el `cliente` dueño de la
-cita y el `barbero` cuya agenda la contiene. En cualquier otro caso, `403`. Una
-cita `cancelada` o `completada` no se reprograma (`400`).
+Quién puede reprogramar: el `administrador` (cualquiera) y el `cliente` dueño de
+la cita. El `barbero` solo consulta su agenda, así que no puede reprogramar. En
+cualquier otro caso, `403`. Una cita `cancelada` o `completada` no se reprograma
+(`400`).
 
 ### Cancelar con reembolso
 
@@ -721,7 +722,7 @@ vive en el frontend.
 | `pendiente` | Agendada, sin confirmar |
 | `confirmada` | Confirmada (también cuando el administrador aprueba el pago móvil) |
 | `completada` | Ya se hizo el servicio |
-| `cancelada` | La canceló el cliente, el barbero o el administrador |
+| `cancelada` | La canceló el cliente o el administrador |
 | `denegada` | **El administrador denegó el comprobante de pago** (estado nuevo, migración 010) |
 | `cancelacion_solicitada` | **El cliente pidió el reembolso** y el administrador todavía no ha contestado (estado nuevo, migración 011) |
 
@@ -740,7 +741,7 @@ Quién puede cambiar el estado:
 | Rol | Qué puede |
 |---|---|
 | `administrador` | Cualquier estado, en cualquier cita |
-| `barbero` | Cualquier estado, pero solo en las citas de **su** agenda |
+| `barbero` | Solo consulta su agenda; no puede cambiar estados |
 | `cliente` | Solo **cancelar** una cita **suya** |
 
 El `cliente` puede cancelar porque la web le muestra el botón "Cancelar" en "Mis

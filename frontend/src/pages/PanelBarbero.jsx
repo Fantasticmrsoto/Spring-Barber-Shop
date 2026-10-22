@@ -97,12 +97,6 @@ export default function PanelBarbero() {
     }
   }, [usuario])
 
-  function actualizarCita(actualizada) {
-    setCitas((prev) =>
-      prev.map((c) => (c.citaID === actualizada.citaID ? { ...c, ...actualizada } : c)),
-    )
-  }
-
   async function guardar(e) {
     e.preventDefault()
     setAviso(null)
@@ -234,7 +228,7 @@ export default function PanelBarbero() {
 
             <div className="mt-6">
               {pestana === 'Agenda' && (
-                <ListaCitas citas={citas} modo="barbero" onCambio={actualizarCita} />
+                <ListaCitas citas={citas} modo="barbero" />
               )}
 
               {pestana === 'Horario' && (
