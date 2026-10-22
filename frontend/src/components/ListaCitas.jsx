@@ -368,6 +368,14 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
                   </p>
                 )}
 
+                {modo === 'cliente' && cita.estado === 'cancelacion_solicitada' && (
+                  <p className="w-full rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-sm text-orange-200">
+                    Pediste cancelar esta cita y el espacio ya quedó libre. Estamos
+                    revisando la devolución de tu dinero: en cuanto el administrador
+                    confirme el reembolso, la cita quedará cancelada.
+                  </p>
+                )}
+
                 {(acciones.length > 0 || modo === 'cliente' || puedeReprogramar || esSolicitudAdmin) && (
                   <div className="flex flex-wrap gap-2 sm:ml-auto">
                     {esSolicitudAdmin && (
