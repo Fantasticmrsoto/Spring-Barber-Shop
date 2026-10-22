@@ -81,6 +81,12 @@
           "citaPublica.setHours(14, 0, 0, 0);",
           "pm.environment.set('fechaCitaPublica', iso(citaPublica));",
           "",
+          "",
+          "// 13:00: hora libre del mismo lunes para la cita que el cliente cancela.",
+          "// (La del comprobante sin subir, que también usa las 13:00, no llega a crearse.)",
+          "const citaCancelacion = new Date(lunes);",
+          "citaCancelacion.setHours(13, 0, 0, 0);",
+          "pm.environment.set('fechaCitaCancelacion', iso(citaCancelacion));",
           "// 09:00, 11:00, 13:00 y 15:00: horas libres del mismo lunes para las",
           "// pruebas del pago al reservar (efectivo, comprobante aprobado, falta de",
           "// comprobante y comprobante rechazado).",
@@ -3568,6 +3574,276 @@
               "});",
               "pm.test('el motivo del rechazo es visible para el cliente', () => {",
               "  pm.expect(json.cita.motivo_pago).to.eql('El comprobante no se ve');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "72 · Reserva para probar la cancelación",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenCliente}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clienteID\": {{usuarioClienteID}},\n  \"barberoID\": {{barberoSemillaID}},\n  \"servicioID\": {{servicioID}},\n  \"fecha_hora\": \"{{fechaCitaCancelacion}}\",\n  \"pago_metodo\": \"efectivo\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/citas",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Una cita pagada en el local: es la que el cliente va a cancelar.",
+              "pm.test('agenda la cita con 201', () => { pm.response.to.have.status(201); });",
+              "const json = pm.response.json();",
+              "pm.test('la cita se agenda normal', () => {",
+              "  pm.expect(json.cita.estado).to.eql('pendiente');",
+              "});",
+              "pm.environment.set('citaIDCancelacion', json.cita.citaID);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "73 · El cliente solicita la cancelación",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenCliente}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"motivo\": \"No puedo asistir\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/citas/{{citaIDCancelacion}}/cancelar-solicitud",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "{{citaIDCancelacion}}",
+            "cancelar-solicitud"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// El cliente pide cancelar: la cita queda esperando la respuesta del",
+              "// administrador (el reembolso lo confirma él).",
+              "pm.test('envía la solicitud con 200', () => { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('la cita queda con la cancelación solicitada', () => {",
+              "  pm.expect(json.cita.estado).to.eql('cancelacion_solicitada');",
+              "});",
+              "pm.test('guarda el motivo de la solicitud', () => {",
+              "  pm.expect(json.cita.cancelacion_motivo).to.eql('No puedo asistir');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "74 · El espacio queda libre",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"barberoID\": {{barberoSemillaID}},\n  \"servicioID\": {{servicioID}},\n  \"fecha_hora\": \"{{fechaCitaCancelacion}}\",\n  \"nombre\": \"Espacio\",\n  \"apellido\": \"Liberado\",\n  \"telefono\": \"04147778888\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/citas/publica",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "publica"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Al pedir la cancelación, la hora se libera: otro cliente puede",
+              "// reservarla aunque el reembolso siga pendiente.",
+              "pm.test('la hora queda disponible con 201', () => { pm.response.to.have.status(201); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "75 · El barbero no ve los datos del cliente",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenBarbero}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/citas",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// El barbero solo necesita la hora, el servicio y el nombre: ni el",
+              "// teléfono ni cómo va el pago le viajan en la respuesta.",
+              "const json = pm.response.json();",
+              "const cita = json.citas.find(c => c.citaID === pm.environment.get('citaIDCancelacion'));",
+              "pm.test('el barbero ve la cita', () => {",
+              "  pm.expect(cita).to.not.be.undefined;",
+              "});",
+              "pm.test('no ve el teléfono del cliente', () => {",
+              "  pm.expect(cita.cliente_telefono).to.be.null;",
+              "});",
+              "pm.test('no ve los datos del pago', () => {",
+              "  pm.expect(cita.pago_metodo).to.be.null;",
+              "  pm.expect(cita.pago_estado).to.be.null;",
+              "});",
+              "pm.test('sí ve el nombre del cliente', () => {",
+              "  pm.expect(cita.cliente_nombre).to.be.a('string');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "76 · El administrador confirma el reembolso",
+      "request": {
+        "method": "PUT",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/citas/{{citaIDCancelacion}}/reembolso/confirmar",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "{{citaIDCancelacion}}",
+            "reembolso",
+            "confirmar"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// El botón verde del panel: el reembolso se aprueba y la cita queda",
+              "// cancelada de verdad.",
+              "pm.test('confirma el reembolso con 200', () => { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('la cita queda cancelada', () => {",
+              "  pm.expect(json.cita.estado).to.eql('cancelada');",
+              "});",
+              "pm.test('queda registrado el reembolso', () => {",
+              "  pm.expect(json.cita.cancelacion_reembolsada).to.be.true;",
               "});"
             ]
           }

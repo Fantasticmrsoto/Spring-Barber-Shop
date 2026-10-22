@@ -27,8 +27,8 @@ const ETIQUETA = {
 
 // Enlaces del cliente para reprogramar/repetir una cita. Se exporta para reusarlo
 // en la tarjeta destacada de "Mis citas".
-export function AccionesClienteCita({ cita }) {
-  const puedeReprogramar = cita.estado === 'pendiente' || cita.estado === 'confirmada'
+export function AccionesClienteCita({ cita, onCambio, setError }) {
+  const puedeReprogramar = (cita.estado === 'pendiente' || cita.estado === 'confirmada') && cita.estado !== 'cancelacion_solicitada'
   // Ya no se muestra "Pagar" desde "Mis citas": si el pago queda pendiente
   // (comprobante en revisión o pago en el local) no tiene sentido volver a pagar
   // desde ahí, y si ya está completado tampoco.
@@ -36,10 +36,23 @@ export function AccionesClienteCita({ cita }) {
     cita.pago_estado === 'pendiente' || cita.pago_estado === 'completado'
   const puedePagar =
     !pagoPendienteOCompletado &&
-    !['cancelada', 'denegada'].includes(cita.estado) &&
+    !['cancelada', 'denegada', 'cancelacion_solicitada'].includes(cita.estado) &&
     (cita.pago_estado === 'rechazado' ||
       (!cita.pago_estado && cita.pago_metodo !== 'pago_movil'))
-  const puedeRepetir = !pagoPendienteOCompletado && !['cancelada', 'denegada'].includes(cita.estado)
+  const puedeRepetir = !pagoPendienteOCompletado && !['cancelada', 'denegada', 'cancelacion_solicitada'].includes(cita.estado)
+  // Cancelar con reembolso: el espacio se libera al solicitarlo, pero la cita
+  // solo queda cancelada cuando el administrador confirma el reembolso.
+  const puedeSolicitarCancelacion = !['cancelada', 'denegada', 'completada', 'cancelacion_solicitada'].includes(cita.estado)
+
+  async function solicitarCancelacion() {
+    try {
+      const actualizada = await solicitarCancelacionCita(cita.citaID)
+      onCambio?.(actualizada)
+    } catch (e) {
+      setError?.(mensajeDeError(e))
+    }
+  }
+
   return (
     <>
       {puedePagar && (
@@ -66,11 +79,23 @@ export function AccionesClienteCita({ cita }) {
           Repetir
         </Link>
       )}
+      {puedeSolicitarCancelacion && (
+        <button
+          type="button"
+          onClick={solicitarCancelacion}
+          className="rounded-full border border-red-400/40 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-red-300 transition hover:bg-red-500/15 sm:py-1.5"
+        >
+          Cancelar y pedir reembolso
+        </button>
+      )}
     </>
   )
 }
 
 // modo: 'cliente' (solo puede cancelar) | 'equipo' (barbero/admin cambian estado)
+//       | 'barbero' (como 'equipo', pero sin los datos personales del cliente
+//         ni los del pago: el barbero solo necesita la hora, el servicio y el
+//         nombre de quien viene)
 export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
   const [error, setError] = useState(null)
   const [ocupada, setOcupada] = useState(null)
@@ -125,6 +150,34 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
     }
   }
 
+  // El administrador confirma el reembolso: la cita queda cancelada.
+  async function confirmarReembolso(cita) {
+    setError(null)
+    setOcupada(cita.citaID)
+    try {
+      const actualizada = await confirmarReembolsoCita(cita.citaID)
+      onCambio?.(actualizada)
+    } catch (e) {
+      setError(mensajeDeError(e))
+    } finally {
+      setOcupada(null)
+    }
+  }
+
+  // El administrador rechaza el reembolso: la cita vuelve a estar en pie.
+  async function rechazarCancelacion(cita) {
+    setError(null)
+    setOcupada(cita.citaID)
+    try {
+      const actualizada = await rechazarCancelacionCita(cita.citaID, 'Reembolso no aprobado')
+      onCambio?.(actualizada)
+    } catch (e) {
+      setError(mensajeDeError(e))
+    } finally {
+      setOcupada(null)
+    }
+  }
+
   const filtradas = useMemo(() => {
     return citas.filter((c) => {
       if (filtro !== 'todas' && c.estado !== filtro) return false
@@ -139,6 +192,9 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
 
   const puedeCancelarCliente = (estado) =>
     estado === 'pendiente' || estado === 'confirmada'
+
+  // El barbero no ve el teléfono del cliente ni cómo va el pago.
+  const vistaBarbero = modo === 'barbero'
 
   return (
     <div className="space-y-4">
@@ -218,7 +274,7 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
               clase: 'bg-white/10 text-cream-200',
             }
             const acciones =
-              modo === 'equipo'
+              modo === 'equipo' || vistaBarbero
                 ? SIGUIENTES[cita.estado] ?? []
                 : puedeCancelarCliente(cita.estado)
                   ? ['cancelada']
@@ -227,8 +283,12 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
             // El backend solo deja mover una cita que sigue en pie: una
             // completada o cancelada ya no se reprograma.
             const puedeReprogramar =
-              modo === 'equipo' &&
+              (modo === 'equipo' || vistaBarbero) &&
               (cita.estado === 'pendiente' || cita.estado === 'confirmada')
+
+            // Solo el administrador aprueba o rechaza el reembolso de una
+            // cancelación solicitada.
+            const esSolicitudAdmin = modo === 'equipo' && cita.estado === 'cancelacion_solicitada'
 
             return (
               <article
@@ -245,18 +305,18 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
                 </div>
 
                 <div className="min-w-0 text-sm text-cream-200/80 sm:min-w-[10rem]">
-                  {modo === 'equipo' ? (
+                  {modo === 'equipo' || vistaBarbero ? (
                     <>
                       <span className="flex flex-wrap items-center gap-2">
                         <span className="text-cream-200/50">Cliente:</span>
                         <span>{nombreCliente(cita)}</span>
-                        {cita.es_invitado && (
+                        {!vistaBarbero && cita.es_invitado && (
                           <span className="rounded-full bg-indigo-500/15 px-2 py-0.5 text-[0.6rem] uppercase tracking-wider text-indigo-300">
                             Invitado
                           </span>
                         )}
                       </span>
-                      {cita.cliente_telefono && (
+                      {!vistaBarbero && cita.cliente_telefono && (
                         <span className="block text-xs text-cream-200/50">
                           {cita.cliente_telefono}
                         </span>
@@ -277,10 +337,12 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
                     {estado.label}
                   </span>
 
-                  <EstadoPagoBadge estado={cita.pago_estado} metodo={cita.pago_metodo} />
+                  {!vistaBarbero && (
+                    <EstadoPagoBadge estado={cita.pago_estado} metodo={cita.pago_metodo} />
+                  )}
                 </div>
 
-                {cita.pago_estado === 'rechazado' && (
+                {!vistaBarbero && cita.pago_estado === 'rechazado' && (
                   <p className="w-full rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
                     {modo === 'cliente'
                       ? mensajeDenegacion(cita)
@@ -288,7 +350,8 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
                   </p>
                 )}
 
-                {modo === 'cliente' &&
+                {!vistaBarbero &&
+                  modo === 'cliente' &&
                   cita.pago_estado === 'pendiente' &&
                   cita.pago_metodo === 'pago_movil' && (
                     <p className="w-full text-xs text-amber-200/80">
@@ -297,8 +360,36 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
                     </p>
                   )}
 
-                {(acciones.length > 0 || modo === 'cliente' || puedeReprogramar) && (
+                {esSolicitudAdmin && (
+                  <p className="w-full rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-sm text-orange-200">
+                    Solicitud de cancelación con reembolso
+                    {cita.cancelacion_motivo ? `: ${cita.cancelacion_motivo}` : '.'} El
+                    espacio ya está libre; confirma el reembolso para cancelar la cita.
+                  </p>
+                )}
+
+                {(acciones.length > 0 || modo === 'cliente' || puedeReprogramar || esSolicitudAdmin) && (
                   <div className="flex flex-wrap gap-2 sm:ml-auto">
+                    {esSolicitudAdmin && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={ocupada === cita.citaID}
+                          onClick={() => confirmarReembolso(cita)}
+                          className="rounded-full bg-emerald-500 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-ink-950 transition hover:bg-emerald-400 disabled:opacity-50 sm:py-1.5"
+                        >
+                          Confirmar reembolso
+                        </button>
+                        <button
+                          type="button"
+                          disabled={ocupada === cita.citaID}
+                          onClick={() => rechazarCancelacion(cita)}
+                          className="rounded-full border border-red-400/40 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-red-300 transition hover:bg-red-500/15 disabled:opacity-50 sm:py-1.5"
+                        >
+                          Rechazar
+                        </button>
+                      </>
+                    )}
                     {acciones.map((estadoDestino) => (
                       <button
                         key={estadoDestino}

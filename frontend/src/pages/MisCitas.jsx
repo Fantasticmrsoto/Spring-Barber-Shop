@@ -109,7 +109,7 @@ export default function MisCitas() {
               </span>
               {modo === 'cliente' && (
                 <div className="flex flex-wrap gap-2 sm:ml-auto">
-                  <AccionesClienteCita cita={proxima} />
+                  <AccionesClienteCita cita={proxima} onCambio={actualizar} setError={setError} />
                 </div>
               )}
             </div>

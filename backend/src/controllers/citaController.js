@@ -28,8 +28,13 @@ const errorHttp = (status, message) => {
  *
  * La usan el listado y las respuestas de las acciones que la modifican, para
  * que todas devuelvan los mismos campos.
+ *
+ * `selectCita({ privado: false })` devuelve la versión para el **barbero**: sin
+ * el teléfono del cliente ni los datos del pago. El barbero solo necesita la
+ * hora, el servicio y el nombre de quien viene; el teléfono y si está pagado
+ * o no no son asunto suyo, así que ni siquiera le viajan en la respuesta.
  */
-const SELECT_CITA = `
+const selectCita = ({ privado = true } = {}) => `
   SELECT
     c."citaID",
     c."clienteID",
@@ -40,23 +45,36 @@ const SELECT_CITA = `
     c.estado,
     c.es_invitado,
     c.contacto_nombre,
-    c.contacto_telefono,
+    ${privado ? 'c.contacto_telefono' : 'NULL::text AS contacto_telefono'},
     c.codigo,
     u.nombre   AS cliente_nombre,
     u.apellido AS cliente_apellido,
-    COALESCE(c.contacto_telefono, u.telefono) AS cliente_telefono,
+    ${
+      privado
+        ? 'COALESCE(c.contacto_telefono, u.telefono) AS cliente_telefono'
+        : 'NULL::text AS cliente_telefono'
+    },
     ub.nombre  AS barbero_nombre,
     ub.apellido AS barbero_apellido,
     s.nombre   AS servicio_nombre,
     s.precio,
     s.duracion_minutos,
-    c.pago_metodo,
-    c.motivo_pago,
+    ${privado ? 'c.pago_metodo' : 'NULL::text AS pago_metodo'},
+    ${privado ? 'c.motivo_pago' : 'NULL::text AS motivo_pago'},
+    -- La solicitud de cancelación (con reembolso). El motivo es lo que el
+    -- administrador necesita para decidir.
+    ${privado ? 'c.cancelacion_motivo' : 'NULL::text AS cancelacion_motivo'},
+    ${privado ? 'c.cancelacion_solicitada_en' : 'NULL::timestamp AS cancelacion_solicitada_en'},
+    ${privado ? 'c.cancelacion_reembolsada' : 'NULL::boolean AS cancelacion_reembolsada'},
+    ${privado ? 'c.cancelacion_reembolsada_en' : 'NULL::timestamp AS cancelacion_reembolsada_en'},
+    ${privado ? 'c.cancelacion_rechazada_motivo' : 'NULL::text AS cancelacion_rechazada_motivo'},
     -- El estado del pago vive en la cita (columna "pago_estado"). El
     -- COALESCE con la última transacción es la red de seguridad para las
     -- citas que ya existían antes de esa columna: así no pierden la etiqueta
     -- de "pagado" que tenían.
-    COALESCE(
+    ${
+      privado
+        ? `COALESCE(
       c.pago_estado,
       (
         SELECT t.estado
@@ -65,13 +83,19 @@ const SELECT_CITA = `
         ORDER BY t."transaccionID" DESC
         LIMIT 1
       )
-    ) AS pago_estado
+    ) AS pago_estado`
+        : 'NULL::text AS pago_estado'
+    }
   FROM cita c
   LEFT JOIN usuario u   ON c."clienteID"  = u."usuarioID"
   JOIN barbero b   ON c."barberoID"  = b."barberoID"
   JOIN usuario ub  ON b."usuarioID"  = ub."usuarioID"
   JOIN servicios s ON c."servicioID" = s."serviciosID"
 `;
+
+// La versión completa, la que usan casi todas las consultas.
+const SELECT_CITA = selectCita();
+
 
 /*
  * Código de gestión de una cita de invitado.
@@ -120,8 +144,12 @@ const obtenerCitas = async (req, res) => {
       filtro = `WHERE b."usuarioID" = $1`;
     }
 
+    // El barbero recibe la agenda sin los datos personales del cliente (su
+    // teléfono) ni los del pago: le bastan la hora, el servicio y el nombre.
+    const consulta = rol === 'barbero' ? selectCita({ privado: false }) : SELECT_CITA;
+
     const resultado = await db.query(
-      `${SELECT_CITA} ${filtro} ORDER BY c.fecha_inicio DESC;`,
+      `${consulta} ${filtro} ORDER BY c.fecha_inicio DESC;`,
       params
     );
 
@@ -942,6 +970,11 @@ const actualizarEstadoCita = async (req, res) => {
       message: 'Estado de cita actualizado',
       cita: resultado.rows[0]
     });
+  } catch (error) {
+    errorInterno(res, error, 'Actualizar Estado Cita');
+  }
+};
+
 // 9b. Solicitar cancelación de cita (cliente o admin)
 // El espacio queda libre inmediatamente; se envía solicitud de reembolso al admin.
 const solicitarCancelacionCita = async (req, res) => {

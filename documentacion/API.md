@@ -434,6 +434,9 @@ propio horario"*. Lo mismo con `DELETE`.
 | `POST` | `/api/citas/publica` | pública | `{ ok, message, cita, codigo }` · `201` |
 | `GET` | `/api/citas/publica/:codigo` | pública | `{ ok, cita }` |
 | `PUT` | `/api/citas/publica/:codigo/estado` | pública | `{ ok, message, cita }` |
+| `POST` | `/api/citas/:id/cancelar-solicitud` | token | `{ ok, message, cita }` (pedir reembolso) |
+| `PUT` | `/api/citas/:id/reembolso/confirmar` | **`administrador`** | `{ ok, message, cita }` |
+| `PUT` | `/api/citas/:id/reembolso/rechazar` | **`administrador`** | `{ ok, message, cita }` |
 
 ```jsonc
 // POST /api/citas
@@ -458,12 +461,19 @@ No se envía.
 | Rol | Qué recibe |
 |---|---|
 | `administrador` | Todas las citas de la peluquería |
-| `barbero` | Solo las citas de su propia agenda |
+| `barbero` | Solo las citas de su propia agenda, **sin el teléfono del cliente ni los datos del pago** |
 | `cliente` | Solo sus propias citas |
 
 Sin ese filtro, un cliente autenticado recibía la agenda completa con el nombre y
 el teléfono de todos los demás clientes. La web ("Mis citas") da por hecho que el
 recorte lo hace el backend.
+
+Lo mismo pasa con el barbero: al barbero no le hacen falta el teléfono del
+cliente ni si el pago está aprobado o pendiente, así que **esos campos no viajan
+en la respuesta** (`cliente_telefono`, `pago_metodo`, `pago_estado` y
+`motivo_pago` llegan como `null`). El nombre del cliente sí, que es lo único que
+necesita para saber a quién atiende. Es un recorte **del backend**, no un
+`display: none` del frontend: los datos no llegan a descargar el navegador.
 
 ### Agendar
 
@@ -603,6 +613,43 @@ Quién puede reprogramar: el `administrador` (cualquiera), el `cliente` dueño d
 cita y el `barbero` cuya agenda la contiene. En cualquier otro caso, `403`. Una
 cita `cancelada` o `completada` no se reprograma (`400`).
 
+### Cancelar con reembolso
+
+El cliente ya no cancela la cita directamente: **pide que se le devuelva el
+dinero** y la peluquería decide. Son tres rutas.
+
+```jsonc
+// POST /api/citas/:id/cancelar-solicitud  (cliente dueño de la cita o admin)
+{ "motivo": "No puedo asistir" }
+
+// PUT /api/citas/:id/reembolso/confirmar   (solo administrador)
+// PUT /api/citas/:id/reembolso/rechazar     (solo administrador)
+{ "motivo": "Reembolso no aprobado" }
+```
+
+Al solicitarlo:
+
+| Qué pasa | Cómo |
+|---|---|
+| La cita pasa a `cancelacion_solicitada` | La guarda el motivo (`cancelacion_motivo`) y la fecha (`cancelacion_solicitada_en`) |
+| **El espacio queda libre** | Una cita `cancelacion_solicitada` no bloquea la agenda: otro cliente puede reservarla |
+| Ya no se puede reprogramar | Ni el cliente ni el admin |
+| El administrador recibe la solicitud | En "Citas" del panel, con el motivo y los botones de confirmar o rechazar |
+
+Y después, según lo que decida el administrador:
+
+| Acción | Resultado |
+|---|---|
+| `reembolso/confirmar` | La cita queda `cancelada` y `cancelacion_reembolsada` pasa a `true` |
+| `reembolso/rechazar` | La cita **vuelve a estar en pie** (`pendiente`) y se guarda el `cancelacion_rechazada_motivo` |
+
+Quién puede pedir la cancelación: el `cliente` dueño de la cita y el
+`administrador`. Cancelar la cita de otra persona es un `403`.
+
+Las columnas de la solicitud (`cancelacion_motivo`, `cancelacion_solicitada_en`,
+`cancelacion_reembolsada`, `cancelacion_reembolsada_en` y
+`cancelacion_rechazada_motivo`) son de la **migración 011**.
+
 ### Estados de una cita
 
 `pendiente` → `confirmada` → `completada`, o → `cancelada` en cualquier momento.
@@ -621,11 +668,17 @@ vive en el frontend.
 | `completada` | Ya se hizo el servicio |
 | `cancelada` | La canceló el cliente, el barbero o el administrador |
 | `denegada` | **El administrador denegó el comprobante de pago** (estado nuevo, migración 010) |
+| `cancelacion_solicitada` | **El cliente pidió el reembolso** y el administrador todavía no ha contestado (estado nuevo, migración 011) |
 
 `denegada` es distinta de `cancelada` a propósito: la cita no se canceló, se le
 **rechazó el pago**. Por eso guarda además el `motivo_pago`, que es el mensaje que
 ve el cliente. Una cita `denegada` no bloquea la agenda del barbero (no cuenta
 como ocupado) y no se puede reprogramar.
+
+`cancelacion_solicitada` es un estado **a medio camino**: el cliente ya no quiere
+la cita, pero la peluquería tiene que devolverle el dinero. Como `denegada`, no
+bloquea la agenda (el espacio queda libre desde que se pide) y no se puede
+reprogramar. Ver [Cancelar con reembolso](#cancelar-con-reembolso).
 
 Quién puede cambiar el estado:
 

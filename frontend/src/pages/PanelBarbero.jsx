@@ -234,7 +234,7 @@ export default function PanelBarbero() {
 
             <div className="mt-6">
               {pestana === 'Agenda' && (
-                <ListaCitas citas={citas} modo="equipo" onCambio={actualizarCita} />
+                <ListaCitas citas={citas} modo="barbero" onCambio={actualizarCita} />
               )}
 
               {pestana === 'Horario' && (

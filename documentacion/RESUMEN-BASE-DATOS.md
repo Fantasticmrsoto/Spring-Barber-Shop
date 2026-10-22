@@ -336,6 +336,7 @@ el servidor** (`AUTO_MIGRATE`), o a mano con `npm run migrate`.
 | 008 | `datos_del_panel_admin` | Columnas que el panel del administrador necesita (`transacciones.citaID`, `metodo_pago`, `estado`, `comprobante_url`, `motivo_rechazo`, `cita.es_invitado`, `contacto_nombre`, `contacto_telefono`) |
 | 009 | `codigo_cita_publica` | `cita.codigo` + índice único parcial: el código con el que un invitado ve y cancela su cita sin cuenta |
 | 010 | `pago_al_reservar` | `cita.pago_metodo`, `cita.pago_estado`, `cita.motivo_pago`; añade `denegada` al estado de cita; CHECKs del pago; rellena datos desde `transacciones` |
+| 011 | `cancelacion_con_reembolso` | `cita.cancelacion_motivo`, `cancelacion_solicitada_en`, `cancelacion_reembolsada`, `cancelacion_reembolsada_en`, `cancelacion_rechazada_motivo`; añade `cancelacion_solicitada` al estado de cita |
 
 Dos detalles que muestran el cuidado del diseño:
 

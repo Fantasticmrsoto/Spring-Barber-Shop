@@ -423,7 +423,16 @@ migración nueva en `backend/migrations/`, el siguiente deploy la aplica sola.
 Las migraciones ya aplicadas se quedan registradas en `schema_migrations` y solo
 se ejecutan las que falten. La migración `010_pago_al_reservar` añade los campos
 de pago a `cita`, el estado `denegada`, los CHECKs correspondientes y rellena los
-datos de las citas que ya tuvieran una transacción.
+datos de las citas que ya tuvieran una transacción. La migración
+`011_cancelacion_con_reembolso` hace lo mismo con la cancelación con reembolso:
+los campos de la solicitud en `cita` y el estado `cancelacion_solicitada`.
+
+> **La 011 va aparte a propósito.** La 010 ya estaba aplicada en la base de
+> producción cuando se añadió la cancelación con reembolso. Editar una migración
+> que ya se ejecutó no vuelve a ejecutarla (el runner solo corre las que faltan
+> en `schema_migrations`), así que los cambios nuevos van **siempre** en una
+> migración nueva. La 011 es idempotente: si la base ya tuviera los campos (por
+> ejemplo, una base creada desde cero), no hace nada.
 
 ---
 
