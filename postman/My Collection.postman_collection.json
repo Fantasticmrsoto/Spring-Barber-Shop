@@ -96,12 +96,13 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/",
+          "raw": "{{base_url}}/api/salud",
           "host": [
             "{{base_url}}"
           ],
           "path": [
-            ""
+            "api",
+            "salud"
           ]
         }
       },
@@ -116,6 +117,9 @@
               "});",
               "pm.test('devuelve ok:true', () => {",
               "  pm.expect(pm.response.json().ok).to.be.true;",
+              "});",
+              "pm.test('la base de datos responde sano', () => {",
+              "  pm.expect(pm.response.json().status).to.eql('sano');",
               "});"
             ]
           }

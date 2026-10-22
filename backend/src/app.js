@@ -95,10 +95,14 @@ app.use('/api/uploads', express.static(path.resolve(__dirname, '../uploads')));
  * `frontend/dist`, se sirve como estático y cualquier ruta que no sea de la
  * API devuelve el index.html, que es lo que necesita una SPA con react-router.
  *
- * Solo se activa en producción (o con `SERVE_FRONTEND=true`). En desarrollo la
- * web la sirve Vite en el 5173 y la API se limita a la API: así `/` sigue
- * devolviendo el JSON de la API, que es lo que comprueba la colección de
- * Postman y lo que espera quien haga curl.
+ * Se activa en producción (o con `SERVE_FRONTEND=true`). En desarrollo puede
+ * quedar apagado: entonces la web la sirve Vite en el 5173 y `/` devuelve el
+ * JSON de la API, que es lo que espera quien haga curl. Con la web servida
+ * desde aquí, `/` devuelve la aplicación y el estado de la API se pide en
+ * `/api/salud`.
+ *
+ * En cualquier caso la API se monta en `/api`, así que la web y la API
+ * comparten origen y no hace falta configurar CORS ni `VITE_API_URL`.
  *
  * Con `FRONTEND_DIST` se puede indicar la ruta; si no, se buscan las rutas
  * habituales (repositorio y contenedor Docker).

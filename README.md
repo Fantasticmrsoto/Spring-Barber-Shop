@@ -31,6 +31,19 @@ npm run dev:api
 npm run dev
 ```
 
+### Qué URL abrir
+
+| URL | Qué se ve |
+|---|---|
+| `http://localhost:5173` | La web en modo desarrollo (Vite). Es la que se usa mientras se toca el código: recarga al instante. |
+| `http://localhost:3000` | La API. Su raíz devuelve el JSON con el estado del servidor. Si además existe `frontend/dist` y está activado `SERVE_FRONTEND=true` en `backend/.env`, en `:3000` se sirve **la web ya compilada**, igual que en producción, y la API queda en `/api`. |
+| `http://192.168.0.251:5173` | La web desde el móvil, en la red local. |
+
+Lo normal en desarrollo es trabajar en `:5173`. Para probar la web compilada
+—que es lo que se despliega— basta con `npm run build` y tener
+`SERVE_FRONTEND=true` en `backend/.env`: la API sirve la web y la API en el
+mismo origen, sin tocar `VITE_API_URL`.
+
 ## Scripts
 
 | Comando | Qué hace |
