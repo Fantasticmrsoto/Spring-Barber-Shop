@@ -66,10 +66,17 @@ client.interceptors.response.use(
 // El backend siempre responde { ok, message|error, ...data }. Esta ayuda extrae
 // un mensaje listo para mostrar al usuario.
 export function mensajeDeError(error) {
+  // La API no respondió: no es un problema de credenciales sino de conexión.
+  // Se dice qué URL se intentó usar, porque casi siempre es lo que está mal
+  // (la web desplegada apuntando a un dominio de API que no existe).
+  if (!error.response) {
+    const destino = API_URL || (typeof window !== 'undefined' ? window.location.origin : 'la API')
+    return `No se pudo conectar con la API (${destino}). Revisa que esté encendida y que la dirección sea correcta.`
+  }
   return (
     error.response?.data?.message ||
     error.response?.data?.error ||
-    'No se pudo conectar con el servidor'
+    `Error ${error.response.status} al conectar con la API`
   )
 }
 
