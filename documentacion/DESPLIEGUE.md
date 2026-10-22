@@ -141,6 +141,20 @@ después es fácil (basta con quitar `VITE_API_URL`).
    Si lo ejecutas desde el shell del servicio en Render, no hace falta pasar
    `DATABASE_URL`: ya está en el entorno.
 
+6. Opcional pero recomendado: siembra los datos de ejemplo (servicios, barbero,
+   cliente y **el horario laboral** del barbero).
+
+   ```bash
+   cd backend
+   DATABASE_URL="postgresql://..." npm run seed
+   ```
+
+   El seed es idempotente: se puede repetir. Y el horario importa más de lo que
+   parece: la API **rechaza** las citas que caen fuera del horario laboral del
+   barbero, así que una peluquería sin horario no puede recibir reservas. Si
+   prefieres no sembrar, la pestaña **Horarios** del panel de administración
+   permite definir la agenda a mano.
+
 ---
 
 ## Paso 2 — La API en Render

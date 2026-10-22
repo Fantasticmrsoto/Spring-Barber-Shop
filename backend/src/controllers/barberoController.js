@@ -205,6 +205,20 @@ const actualizarBarbero = async (req, res) => {
     }
   }
 
+  // La foto se quita mandando `foto_url: null`. Solo se aceptan las rutas que
+  // genera la API al subir el archivo ("/uploads/..."): así nadie puede poner
+  // una imagen de fuera ni una ruta rara.
+  if (req.body?.foto_url !== undefined) {
+    const valor = req.body.foto_url;
+    if (valor === null) {
+      valores.foto_url = null;
+    } else if (typeof valor === 'string' && valor.trim().startsWith('/uploads/')) {
+      valores.foto_url = valor.trim();
+    } else {
+      problemas.push('La foto debe ser una ruta de /uploads o null para quitarla');
+    }
+  }
+
   if (problemas.length > 0) {
     return res.status(400).json({ ok: false, message: problemas.join('. ') });
   }

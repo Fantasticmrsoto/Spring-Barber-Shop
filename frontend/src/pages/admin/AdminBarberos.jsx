@@ -198,6 +198,26 @@ export default function AdminBarberos() {
     }
   }
 
+  /*
+   * Quitar la foto de un barbero.
+   *
+   * Subirla es fácil; deshacer una subida equivocada (la foto de otra persona,
+   * un archivo que no era una foto) también tiene que ser fácil, así que el
+   * administrador puede dejarla vacía desde la misma lista.
+   */
+  async function quitarFoto(b) {
+    setAviso(null)
+    try {
+      const barbero = await actualizarBarbero(b.barberoID, { foto_url: null })
+      setBarberos((prev) =>
+        prev.map((x) => (x.barberoID === barbero.barberoID ? { ...x, ...barbero } : x)),
+      )
+      setAviso('Foto quitada.')
+    } catch (err) {
+      setAviso(mensajeDeError(err))
+    }
+  }
+
   return (
     <div className="space-y-8">
       {/* Un único input para todas las fotos: se abre justo después de elegir
@@ -268,6 +288,15 @@ export default function AdminBarberos() {
                     >
                       {subiendoFoto && fotoDe === b.barberoID ? 'Subiendo…' : 'Foto'}
                     </button>
+                    {b.foto_url && (
+                      <button
+                        type="button"
+                        onClick={() => quitarFoto(b)}
+                        className="text-xs uppercase tracking-wider text-cream-200/70 transition hover:text-red-300"
+                      >
+                        Quitar foto
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => editar(b)}

@@ -28,6 +28,12 @@ services:
       # de login se agotaría para todos los usuarios a la vez.
       - key: TRUST_PROXY
         value: "1"
+      # La API guarda la hora de pared (la cita de las 15:00 se guarda a las
+      # 15:00). Los contenedores de Render corren en UTC, así que sin esta
+      # variable las citas se verían con cuatro horas de diferencia. La app
+      # también la fija por su cuenta; aquí está para que se vea explícita.
+      - key: TZ
+        value: America/Caracas
       # URL de conexión de Neon. Se rellena en el panel (sync: false = no
       # se pide en el momento de crear el blueprint).
       - key: DATABASE_URL

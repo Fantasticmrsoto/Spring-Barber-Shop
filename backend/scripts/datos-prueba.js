@@ -80,8 +80,6 @@ const CLIENTES = [
   { nombre: 'Sofía', apellido: 'Pineda', correo: `cliente5@${CORREO_BASE}`, telefono: '04125555555' },
 ];
 
-// Días de descanso de la peluquería: los domingos no se agenda nada.
-const DIAS_ANTES_CERRADO = ['domingo'];
 const pool = new Pool(opcionesPool());
 
 const preguntar = async (texto, valores) => {

@@ -73,6 +73,21 @@ const USUARIOS = [
   },
 ];
 
+// Agenda semanal del barbero de ejemplo.
+//
+// Sin esto la peluquería abre sin horario y ninguna cita puede agendarse: la
+// API rechaza las reservas fuera del horario laboral. El administrador puede
+// cambiarla después desde el panel (pestaña "Horarios"), pero un despliegue
+// nuevo tiene que empezar con una agenda que sirva.
+const HORARIOS = [
+  { dia: 'lunes', inicio: '09:00', fin: '18:00' },
+  { dia: 'martes', inicio: '09:00', fin: '18:00' },
+  { dia: 'miercoles', inicio: '09:00', fin: '18:00' },
+  { dia: 'jueves', inicio: '09:00', fin: '18:00' },
+  { dia: 'viernes', inicio: '09:00', fin: '18:00' },
+  { dia: 'sabado', inicio: '09:00', fin: '14:00' },
+];
+
 const pool = new Pool(opcionesPool());
 
 const servicioExiste = async (nombre) => {
@@ -87,6 +102,19 @@ const usuarioExiste = async (correo) => {
 
 const barberoExiste = async (usuarioId) => {
   const r = await pool.query('SELECT 1 FROM barbero WHERE "usuarioID" = $1', [usuarioId]);
+  return r.rowCount > 0;
+};
+
+const barberoIdDe = async (usuarioId) => {
+  const r = await pool.query('SELECT "barberoID" FROM barbero WHERE "usuarioID" = $1', [usuarioId]);
+  return r.rows[0]?.barberoID ?? null;
+};
+
+const diaYaTieneHorario = async (barberoId, dia) => {
+  const r = await pool.query(
+    'SELECT 1 FROM horario_laboral WHERE "barberoID" = $1 AND dia_semana = $2',
+    [barberoId, dia]
+  );
   return r.rowCount > 0;
 };
 
@@ -152,6 +180,24 @@ const barberoExiste = async (usuarioId) => {
       [usuarioBarbero, 30, true]
     );
     console.log('    ✓ ficha de barbero');
+  }
+
+  // Agenda laboral del barbero: solo se rellenan los días que estén vacíos,
+  // para no pisar los horarios que el administrador haya ajustado a mano.
+  const barberoId = usuarioBarbero ? await barberoIdDe(usuarioBarbero) : null;
+  if (barberoId) {
+    for (const h of HORARIOS) {
+      if (await diaYaTieneHorario(barberoId, h.dia)) {
+        console.log(`    · horario ${h.dia} (ya existía)`);
+        continue;
+      }
+      await pool.query(
+        `INSERT INTO horario_laboral ("barberoID", dia_semana, hora_inicio, hora_fin)
+         VALUES ($1, $2, $3, $4)`,
+        [barberoId, h.dia, h.inicio, h.fin]
+      );
+      console.log(`    ✓ horario ${h.dia} ${h.inicio}-${h.fin}`);
+    }
   }
 
   console.log('\n  Listo. Credenciales de ejemplo:\n');

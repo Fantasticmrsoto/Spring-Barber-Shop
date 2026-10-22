@@ -4,6 +4,10 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
+// La zona horaria se fija lo primero: de ella depende que una cita de las
+// 15:00 se guarde y se vea a las 15:00, también en la nube (ver el archivo).
+require('./config/zonaHoraria');
+
 // Módulos de rutas
 const usuarioRoutes = require('./routes/usuarioRoutes');
 const servicioRoutes = require('./routes/servicioRoutes');
