@@ -109,7 +109,15 @@
           "// 16:00: hora libre para la cita de invitado que hereda una cuenta nueva",
           "const heredada = new Date(lunes);",
           "heredada.setHours(16, 0, 0, 0);",
-          "pm.environment.set('fechaCitaHeredada', iso(heredada));"
+          "pm.environment.set('fechaCitaHeredada', iso(heredada));",
+          "",
+          "// Martes a las 10:00 de la misma semana: el lunes está ocupado por",
+          "// el resto de la suite (y el horario del barbero sembrado se cierra a",
+          "// las 17:00), así que el martes está libre de verdad.",
+          "const citaAdmin = new Date(lunes);",
+          "citaAdmin.setDate(lunes.getDate() + 1);",
+          "citaAdmin.setHours(10, 0, 0, 0);",
+          "pm.environment.set('fechaCitaAdmin', iso(citaAdmin));"
         ]
       }
     }
@@ -192,7 +200,8 @@
               "pm.test('es un administrador', () => {",
               "  pm.expect(json.usuario.rol).to.eql('administrador');",
               "});",
-              "pm.environment.set('tokenAdmin', json.token);"
+              "pm.environment.set('tokenAdmin', json.token);",
+              "pm.environment.set('usuarioAdminSemillaID', json.usuario.usuarioID);"
             ]
           }
         }
@@ -3845,6 +3854,664 @@
               "pm.test('queda registrado el reembolso', () => {",
               "  pm.expect(json.cita.cancelacion_reembolsada).to.be.true;",
               "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "77 · El administrador no agenda citas en su cuenta",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clienteID\": {{usuarioAdminSemillaID}},\n  \"barberoID\": {{barberoSemillaID}},\n  \"servicioID\": {{servicioID}},\n  \"fecha_hora\": \"{{fechaCitaAdmin}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/citas",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// La cuenta del administrador es de trabajo, no de cliente: no puede",
+              "// agendar citas para sí mismo (las agenda para los demás desde el panel).",
+              "pm.test('rechaza la reserva del administrador para sí mismo', () => {",
+              "  pm.response.to.have.status(403);",
+              "});",
+              "pm.test('el mensaje manda a la reserva manual del panel', () => {",
+              "  pm.expect(pm.response.json().message).to.include('reserva manual');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "78 · Reserva manual del administrador (cobro en el local)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clienteID\": {{usuarioClienteID}},\n  \"barberoID\": {{barberoSemillaID}},\n  \"servicioID\": {{servicioID}},\n  \"fecha_hora\": \"{{fechaCitaAdmin}}\",\n  \"pago_metodo\": \"efectivo\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/citas",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// El administrador sí agenda citas, pero para otros clientes.",
+              "pm.test('agenda la cita del cliente con 201', () => { pm.response.to.have.status(201); });",
+              "const json = pm.response.json();",
+              "pm.test('la cita es del cliente, no del administrador', () => {",
+              "  pm.expect(json.cita.clienteID).to.eql(pm.environment.get('usuarioClienteID'));",
+              "});",
+              "pm.test('el pago en efectivo queda pendiente de cobrar', () => {",
+              "  pm.expect(json.cita.pago_metodo).to.eql('efectivo');",
+              "  pm.expect(json.cita.pago_estado).to.eql('pendiente');",
+              "});",
+              "pm.environment.set('citaIDAdmin', json.cita.citaID);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "79 · Marcar el cobro del local como realizado",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/api/citas/{{citaIDAdmin}}/pago/completar",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "{{citaIDAdmin}}",
+            "pago",
+            "completar"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// El servicio ya se consumió (el bloque de esa hora quedó libre) y el",
+              "// cliente ya pagó: el administrador apunta el cobro.",
+              "pm.test('confirma el cobro con 200', () => { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('el pago pasa a completado', () => {",
+              "  pm.expect(json.cita.pago_estado).to.eql('completado');",
+              "});",
+              "pm.test('el estado de la cita no cambia (el servicio ya se hizo)', () => {",
+              "  pm.expect(json.cita.estado).to.eql('pendiente');",
+              "});",
+              "pm.test('queda registrado en el libro de pagos', () => {",
+              "  pm.expect(json.transaccion.transaccionID).to.be.a('number');",
+              "  pm.expect(json.transaccion.estado).to.eql('completado');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "80 · El cobro no se puede registrar dos veces",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/api/citas/{{citaIDAdmin}}/pago/completar",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "{{citaIDAdmin}}",
+            "pago",
+            "completar"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('rechaza el cobro repetido con 400', () => { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "81 · El barbero no puede cobrar en el local",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenBarbero}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/api/citas/{{citaIDAdmin}}/pago/completar",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "{{citaIDAdmin}}",
+            "pago",
+            "completar"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('el barbero no tiene permiso con 403', () => { pm.response.to.have.status(403); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "82 · El barbero no puede borrar citas",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenBarbero}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/api/citas/{{citaIDAdmin}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "{{citaIDAdmin}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('el barbero no tiene permiso con 403', () => { pm.response.to.have.status(403); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "83 · El administrador borra la cita",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/api/citas/{{citaIDAdmin}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "citas",
+            "{{citaIDAdmin}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('borra la cita con 200', () => { pm.response.to.have.status(200); });",
+              "pm.test('confirma que se borró', () => { pm.expect(pm.response.json().ok).to.be.true; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "84 · No se puede borrar un barbero con citas por delante",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/api/barberos/{{barberoSemillaID}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "barberos",
+            "{{barberoSemillaID}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Ese barbero tiene citas por delante: borrarlas sin avisar",
+              "// dejaría a unos clientes sin cita.",
+              "pm.test('rechaza el borrado con 409', () => { pm.response.to.have.status(409); });",
+              "pm.test('el mensaje pide cancelar o completar las citas', () => {",
+              "  pm.expect(pm.response.json().message).to.include('cita');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "85 · Crear usuario barbero de prueba",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Barbero\",\n  \"apellido\": \"Borrable\",\n  \"correo\": \"barbero_{{$timestamp}}{{$randomInt}}@barberia.com\",\n  \"telefono\": \"04129876544\",\n  \"clave\": \"clave123\",\n  \"rol\": \"barbero\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/usuarios",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "usuarios"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('crea el usuario con 201', () => { pm.response.to.have.status(201); });",
+              "const json = pm.response.json();",
+              "pm.test('nace con rol barbero', () => { pm.expect(json.usuario.rol).to.eql('barbero'); });",
+              "pm.environment.set('usuarioBarberoPruebaID', json.usuario.usuarioID);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "86 · Crear la ficha del barbero de prueba",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"usuarioID\": {{usuarioBarberoPruebaID}},\n  \"comision\": 20.0\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/barberos",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "barberos"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('crea la ficha con 201', () => { pm.response.to.have.status(201); });",
+              "const json = pm.response.json();",
+              "pm.environment.set('barberoIDPrueba', json.barbero.barberoID);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "87 · El barbero no puede borrar barberos",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenBarbero}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/api/barberos/{{barberoIDPrueba}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "barberos",
+            "{{barberoIDPrueba}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('el barbero no tiene permiso con 403', () => { pm.response.to.have.status(403); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "88 · El administrador borra al barbero",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/api/barberos/{{barberoIDPrueba}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "barberos",
+            "{{barberoIDPrueba}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Se borra la ficha (con sus horarios y sus citas), no la cuenta de usuario.",
+              "pm.test('borra al barbero con 200', () => { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('el borrado trae el resumen de lo que se fue en cascada', () => {",
+              "  pm.expect(json.citasEliminadas).to.be.a('number');",
+              "  pm.expect(json.horariosEliminados).to.be.a('number');",
+              "  pm.expect(json.serviciosEliminados).to.be.a('number');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "89 · Borrar el usuario de prueba",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/api/usuarios/{{usuarioBarberoPruebaID}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "usuarios",
+            "{{usuarioBarberoPruebaID}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('borra el usuario con 200', () => { pm.response.to.have.status(200); });"
             ]
           }
         }

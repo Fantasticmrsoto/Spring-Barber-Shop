@@ -28,6 +28,13 @@ export async function subirFotoBarbero(barberoID, archivo) {
   return data.barbero
 }
 
+// Quita a un barbero del equipo (solo el administrador). Borra la ficha: sus
+// horarios, sus servicios asignados y sus citas se van en cascada.
+export async function eliminarBarbero(barberoID) {
+  const { data } = await client.delete(`/api/barberos/${barberoID}`)
+  return data
+}
+
 // Reseñas públicas de un barbero: { total, promedio, resenas: [...] }
 export async function getResenasBarbero(barberoID) {
   const { data } = await client.get(`/api/barberos/${barberoID}/resenas`)

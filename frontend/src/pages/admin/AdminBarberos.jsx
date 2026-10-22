@@ -4,6 +4,7 @@ import {
   crearBarbero,
   actualizarBarbero,
   subirFotoBarbero,
+  eliminarBarbero,
 } from '../../api/barberos'
 import { getUsuarios } from '../../api/usuarios'
 import { getServicios } from '../../api/servicios'
@@ -11,7 +12,7 @@ import { getServiciosDeBarbero, asignarServicio, desasignarServicio } from '../.
 import { mensajeDeError } from '../../api/client'
 import { precio, urlImagen } from '../../utils/formato'
 import { fotoBarbero } from '../../utils/fotosBarbero'
-import { inputClase, botonPrimario, botonSecundario, etiqueta, tarjeta } from '../../ui/estilos'
+import { inputClase, botonPrimario, botonSecundario, botonEditar, botonEliminar, etiqueta, tarjeta } from '../../ui/estilos'
 
 const FICHA_VACIA = {
   comision: '20',
@@ -218,6 +219,37 @@ export default function AdminBarberos() {
     }
   }
 
+  /*
+   * Quitar a un barbero del equipo.
+   *
+   * Se borra la ficha de barbero, no la cuenta de usuario: la cuenta sigue
+   * existiendo. Pero al borrarla se van en cascada sus horarios, sus
+   * servicios asignados y sus citas (con sus pagos), así que el aviso lo
+   * dice claro antes de hacerlo.
+   */
+  async function borrar(b) {
+    const ok = window.confirm(
+      `¿Eliminar a ${b.nombre} ${b.apellido} del equipo?\n\n` +
+        'Se borrará su ficha de barbero y, con ella, sus horarios, sus servicios ' +
+        'asignados y sus citas (incluidos los pagos de esas citas). La cuenta de ' +
+        'usuario no se borra.\n\n' +
+        'Si tiene citas por delante, cancélalas o complétalas primero.',
+    )
+    if (!ok) return
+    setAviso(null)
+    try {
+      const res = await eliminarBarbero(b.barberoID)
+      setBarberos((prev) => prev.filter((x) => x.barberoID !== b.barberoID))
+      if (editandoID === b.barberoID) cancelarEdicion()
+      setAviso(
+        `Barbero eliminado. Se borraron ${res.citasEliminadas ?? 0} cita(s), ` +
+          `${res.horariosEliminados ?? 0} horario(s) y ${res.serviciosEliminados ?? 0} servicio(s).`,
+      )
+    } catch (err) {
+      setAviso(mensajeDeError(err))
+    }
+  }
+
   return (
     <div className="space-y-8">
       {/* Un único input para todas las fotos: se abre justo después de elegir
@@ -300,9 +332,16 @@ export default function AdminBarberos() {
                     <button
                       type="button"
                       onClick={() => editar(b)}
-                      className="text-xs uppercase tracking-wider text-gold-300 transition hover:text-gold-200"
+                      className={botonEditar}
                     >
                       Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => borrar(b)}
+                      className={botonEliminar}
+                    >
+                      Eliminar
                     </button>
                   </div>
                 </div>

@@ -75,6 +75,19 @@ export async function rechazarCancelacionCita(id, motivo) {
   return data.cita
 }
 
+// Marca el pago de una cita como realizado (cobro en el local). Solo el
+// administrador: deja la cita como "pagada" sin tocar el estado de la cita.
+export async function completarPagoCita(id) {
+  const { data } = await client.put(`/api/citas/${id}/pago/completar`)
+  return data.cita
+}
+
+// Borra una cita de la agenda (solo el administrador).
+export async function eliminarCita(id) {
+  const { data } = await client.delete(`/api/citas/${id}`)
+  return data
+}
+
 
 // Reserva pública (sin sesión). Devuelve { cita, codigo } — el codigo permite ver y
 // cancelar la cita sin cuenta.

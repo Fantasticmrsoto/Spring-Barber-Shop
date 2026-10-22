@@ -346,10 +346,100 @@ const actualizarFotoBarbero = async (req, res) => {
   }
 };
 
+/*
+ * 6. Eliminar a un barbero
+ *
+ * Se borra la **ficha** de barbero, no la cuenta de usuario: la cuenta sigue
+ * existiendo (y con ella su historial) y esa persona deja de atender en la
+ * peluquería.
+ *
+ * Al borrar la ficha se van en cascada sus horarios, sus servicios asignados
+ * y sus citas (con los pagos de esas citas).
+ *
+ * Si el barbero tiene citas por delante, no se borra: esas citas las esperan
+ * unos clientes y desaparecerían sin que nadie se entere. Primero hay que
+ * cancelarlas o completarlas.
+ */
+const eliminarBarbero = async (req, res) => {
+  const barberoId = idValido(req.params.id);
+
+  if (!barberoId) {
+    return res.status(400).json({
+      ok: false,
+      message: 'El ID del barbero debe ser un número entero válido'
+    });
+  }
+
+  try {
+    const existentes = await db.query(
+      'SELECT "barberoID" FROM barbero WHERE "barberoID" = $1',
+      [barberoId]
+    );
+
+    if (existentes.rows.length === 0) {
+      return res.status(404).json({ ok: false, message: 'Barbero no encontrado' });
+    }
+
+    const porVenir = await db.query(
+      `SELECT COUNT(*)::int AS total
+       FROM cita
+       WHERE "barberoID" = $1
+         AND estado IN ('pendiente', 'confirmada')
+         AND fecha_inicio >= NOW()`,
+      [barberoId]
+    );
+
+    if (porVenir.rows[0].total > 0) {
+      return res.status(409).json({
+        ok: false,
+        message: `Este barbero tiene ${porVenir.rows[0].total} cita(s) por delante. Cancela o completa esas citas antes de eliminarlo.`
+      });
+    }
+
+    // El resumen se cuenta antes de borrar: al borrar la ficha, las citas y
+    // sus pagos se van también en cascada.
+    const resumen = await db.withTransaction(async (client) => {
+      const citas = await client.query(
+        'SELECT COUNT(*)::int AS total FROM cita WHERE "barberoID" = $1',
+        [barberoId]
+      );
+      const horarios = await client.query(
+        'SELECT COUNT(*)::int AS total FROM horario_laboral WHERE "barberoID" = $1',
+        [barberoId]
+      );
+      const servicios = await client.query(
+        'SELECT COUNT(*)::int AS total FROM barbero_servicio WHERE "barberoID" = $1',
+        [barberoId]
+      );
+
+      const borrado = await client.query(
+        'DELETE FROM barbero WHERE "barberoID" = $1 RETURNING "barberoID"',
+        [barberoId]
+      );
+
+      return {
+        barberoID: borrado.rows[0].barberoID,
+        citasEliminadas: citas.rows[0].total,
+        horariosEliminados: horarios.rows[0].total,
+        serviciosEliminados: servicios.rows[0].total
+      };
+    });
+
+    res.json({
+      ok: true,
+      message: 'Barbero eliminado exitosamente',
+      ...resumen
+    });
+  } catch (error) {
+    errorInterno(res, error, 'Eliminar Barbero');
+  }
+};
+
 module.exports = {
   obtenerBarberos,
   obtenerBarberoPorId,
   crearBarbero,
   actualizarBarbero,
-  actualizarFotoBarbero
+  actualizarFotoBarbero,
+  eliminarBarbero
 };

@@ -5,7 +5,8 @@ const {
   obtenerBarberoPorId,
   crearBarbero,
   actualizarBarbero,
-  actualizarFotoBarbero
+  actualizarFotoBarbero,
+  eliminarBarbero
 } = require('../controllers/barberoController');
 const {
   obtenerResenasBarbero,
@@ -39,6 +40,10 @@ router.post('/:barberoID/resenas', verificarToken, crearResena);
 // Editar la ficha: el administrador puede corregir cualquier barbero y el
 // barbero puede editar la suya.
 router.put('/:id', verificarToken, verificarRol(['administrador', 'barbero']), actualizarBarbero);
+
+// Quitar a un barbero del equipo. Es una acción de administración: borra la
+// ficha (con sus horarios y sus citas), no la cuenta de usuario.
+router.delete('/:id', verificarToken, verificarRol(['administrador']), eliminarBarbero);
 
 // La foto se manda como multipart/form-data con el campo "foto".
 router.post(

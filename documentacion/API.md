@@ -295,6 +295,7 @@ tiene citas registradas (responde `400`): esas citas se irían con él.
 | `POST` | `/api/barberos` | **`administrador`** | `{ ok, message, barbero }` · `201` |
 | `PUT` | `/api/barberos/:id` | `administrador` / `barbero` | `{ ok, message, barbero }` |
 | `POST` | `/api/barberos/:id/foto` | `administrador` / `barbero` | `{ ok, message, barbero }` · `201` |
+| `DELETE` | `/api/barberos/:id` | **`administrador`** | `{ ok, message, barberoID, citasEliminadas, horariosEliminados, serviciosEliminados }` |
 
 Dar de alta a un barbero es una operación del negocio: la hace el administrador.
 Un `barbero` o un `cliente` que lo intentan reciben un `403`.
@@ -331,6 +332,37 @@ editar la ficha de otro barbero, también.
 (JPG, PNG, WEBP o GIF; máximo 5 MB). La API guarda el archivo en
 `backend/uploads` y devuelve la ficha con `foto_url` (por ejemplo
 `/uploads/9f8c….jpg`). Los archivos se sirven en `/uploads`.
+
+### Borrar un barbero
+
+`DELETE /api/barberos/:id` (solo `administrador`) **borra la ficha de barbero**,
+no la cuenta de usuario: la cuenta sigue existiendo (con su historial) y esa
+persona deja de atender en la peluquería.
+
+Al borrar la ficha se van en cascada sus horarios, sus servicios asignados y sus
+citas (con los pagos de esas citas). La respuesta dice cuánto se fue:
+
+```jsonc
+{
+  "ok": true,
+  "message": "Barbero eliminado exitosamente",
+  "barberoID": 4,
+  "citasEliminadas": 2,
+  "horariosEliminados": 6,
+  "serviciosEliminados": 3
+}
+```
+
+**Guarda de citas por delante.** Si el barbero tiene citas `pendiente` o
+`confirmada` cuya fecha todavía no pasa, la API responde `409` y no borra nada:
+
+```jsonc
+{ "ok": false,
+  "message": "Este barbero tiene 2 cita(s) por delante. Cancela o completa esas citas antes de eliminarlo." }
+```
+
+Esas citas las esperan unos clientes: desaparecerían sin que nadie se entere.
+Primero hay que cancelarlas o completarlas.
 
 ---
 
@@ -437,6 +469,8 @@ propio horario"*. Lo mismo con `DELETE`.
 | `POST` | `/api/citas/:id/cancelar-solicitud` | token | `{ ok, message, cita }` (pedir reembolso) |
 | `PUT` | `/api/citas/:id/reembolso/confirmar` | **`administrador`** | `{ ok, message, cita }` |
 | `PUT` | `/api/citas/:id/reembolso/rechazar` | **`administrador`** | `{ ok, message, cita }` |
+| `PUT` | `/api/citas/:id/pago/completar` | **`administrador`** | `{ ok, message, cita, transaccion }` (cobro en el local) |
+| `DELETE` | `/api/citas/:id` | **`administrador`** | `{ ok, message, citaID }` |
 
 ```jsonc
 // POST /api/citas
@@ -494,6 +528,12 @@ bloqueada: dos reservas simultáneas para la misma hora no pueden colarse.
 Un `cliente` solo agenda **en su nombre**: mandar un `clienteID` que no es el suyo
 es un `403`. El `administrador` sí puede agendar para quien quiera.
 
+**El administrador no agenda en su propia cuenta.** Su cuenta es de trabajo, no de
+cliente: si manda su propio `usuarioID` como `clienteID`, la API responde `403` con
+el mensaje *"El administrador no puede agendar citas en su propia cuenta. Usa la
+reserva manual del panel para agendar a un cliente."*. Para agendar para sí mismo
+como cliente, lo normal es que use su cuenta de cliente, no la de administración.
+
 | Error | Cuándo |
 |---|---|
 | `400` | Es domingo (día de descanso) o es un feriado |
@@ -503,6 +543,7 @@ es un `403`. El `administrador` sí puede agendar para quien quiera.
 | `400` | La cita cruzaría la medianoche |
 | `400` | A un invitado le falta el nombre o el teléfono (mínimo 7 dígitos) |
 | `403` | Se intenta agendar en nombre de otro |
+| `403` | El administrador intenta agendar en su propia cuenta |
 | `404` | El barbero o el servicio no existen |
 
 ### Reserva sin cuenta (público)
@@ -695,6 +736,60 @@ cambio de estado hecho por un cliente es un `403`.
 Un `401` significa token ausente o expirado. Un `403` significa rol insuficiente o
 que el recurso no es de quien pregunta.
 
+### Cobrar en el local: de "pendiente" a "realizado"
+
+Cuando el cliente reserva pagando en **efectivo** o con **tarjeta**, la cita se
+agenda normal y se queda con la etiqueta de **pago pendiente**: no hay
+comprobante que revisar (esos pagos no dejan fila en el libro de pagos, solo la
+etiqueta en la cita).
+
+Cuando la persona ya tomó el servicio —el bloque de esa hora ya quedó libre— y
+paga en el mostrador, el administrador apunta el cobro:
+
+```http
+PUT /api/citas/:id/pago/completar     (solo administrador)
+```
+
+```jsonc
+// respuesta 200
+{
+  "ok": true,
+  "message": "Pago marcado como realizado",
+  "cita": { "citaID": 9, "pago_metodo": "efectivo", "pago_estado": "completado", … },
+  "transaccion": { "transaccionID": 12, "estado": "completado", "monto": 25000,
+                   "referencia_pago": "Cobro en el local" }
+}
+```
+
+Qué hace:
+
+| Qué | Cómo |
+|---|---|
+| La cita pasa a `pago_estado: 'completado'` | `pago_metodo` no se toca |
+| Entra en el libro de pagos | Fila en `transacciones` con el **precio del servicio** como monto y la referencia *"Cobro en el local"* |
+| **El estado de la cita no cambia** | El servicio ya se hizo: la cita sigue como estaba (`pendiente`, `confirmada` o `completada`) |
+
+La API lo rechaza con `400` si el pago ya estaba realizado, si la cita está
+`cancelada` o `denegada`, si no tiene método de pago, o si el método es
+`pago_movil` (esos se aprueban o se rechazan desde su comprobante, con
+`/api/transacciones/:id/aprobar`).
+
+En el panel, la pestaña **Pagos** lista estos cobros en el bloque *"Cobros
+pendientes en el local"* con un botón **"Marcar como realizado"**.
+
+### Borrar una cita
+
+`DELETE /api/citas/:id` (solo `administrador`) borra la cita de la agenda. Su
+pago se va con ella (en cascada).
+
+```jsonc
+// respuesta 200
+{ "ok": true, "message": "Cita eliminada exitosamente", "citaID": 9 }
+```
+
+Una cita que no existe devuelve `404`. Es una acción definitiva: la web pide
+confirmación antes de llamarla.
+
 ---
 
 ## Días no laborables
@@ -816,6 +911,19 @@ igual, pero la cita se queda como estaba. La lógica está compartida en
 guarda en la cita y el cliente lo ve en "Mis citas" y en la página pública de su
 cita (la que abre con su código).
 
+### Los cobros que faltan en el local
+
+Los dos botones de arriba son para los **comprobantes de pago móvil**. Los pagos
+en **efectivo o tarjeta** son otra cosa: no dejan comprobante, así que no hay nada
+que aprobar ni rechazar. La cita queda con `pago_estado: 'pendiente'` y el
+administrador la ve en la pestaña **Pagos**, en el bloque *"Cobros pendientes en el
+local"*, con un botón **"Marcar como realizado"**.
+
+Ese botón llama a `PUT /api/citas/:id/pago/completar`, que es la forma corta de
+hacer lo mismo que `POST /api/transacciones` con la cita y el método ya
+apuntados, pero sin tener que elegirlos a mano. Ver
+[Cobrar en el local](#cobrar-en-el-local-de-pendiente-a-realizado).
+
 ### Movimiento de saldo
 
 ```jsonc
@@ -882,12 +990,13 @@ Si el frontend necesita gestionar el catálogo, la API tiene estos huecos:
 
 | Módulo | Falta |
 |---|---|
-| Citas | `GET /api/citas/:id`, `DELETE /api/citas/:id` |
+| Citas | `GET /api/citas/:id` |
 | Horarios | `PUT` (se resuelve con otro `POST`, es un upsert) |
 | Auth | `POST /api/auth/logout` (hoy no hay revocación) |
 
 Usuarios, servicios, barberos, citas, transacciones, feriados y reseñas ya tienen
-su CRUD completo.
+su CRUD completo (`DELETE /api/citas/:id` y `DELETE /api/barberos/:id` también
+existen).
 
 ---
 
@@ -909,6 +1018,9 @@ Todas las rutas que la web llama **existen hoy**:
 | `POST /api/barberos/:id/foto` | `pages/PanelBarbero.jsx` |
 | `GET/POST /api/barberos/:id/resenas` | `components/ModalBarbero.jsx` |
 | `GET /api/barberos/resenas`, `DELETE /api/barberos/resenas/:id` | `pages/admin/AdminResenas.jsx` |
+| `DELETE /api/barberos/:id` | `pages/admin/AdminBarberos.jsx` |
+| `DELETE /api/citas/:id` | `components/ListaCitas.jsx` (pestaña Citas del panel) |
+| `PUT /api/citas/:id/pago/completar` | `pages/admin/AdminTransacciones.jsx` (cobros del local) |
 | `PUT/DELETE /api/servicios/:id` | `pages/admin/AdminServicios.jsx` |
 | `GET /api/transacciones/:id`, `/:id/aprobar`, `/:id/rechazar` | `pages/admin/AdminTransacciones.jsx` |
 | `GET /api/estadisticas/resumen` | `pages/admin/AdminResumen.jsx` |

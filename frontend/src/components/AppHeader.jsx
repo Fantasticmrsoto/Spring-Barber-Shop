@@ -18,6 +18,11 @@ export default function AppHeader() {
   const esBarbero = usuario?.rol === 'barbero'
   const esAdmin = usuario?.rol === 'administrador'
 
+  // El administrador no es cliente de la peluquería: su cuenta es de trabajo,
+  // así que no se le ofrecen los enlaces de reservar ni de "Mis citas". Las
+  // citas las agenda desde el panel, para los demás.
+  const esCliente = !esAdmin
+
   function salir() {
     setMenuAbierto(false)
     cerrarSesion()
@@ -38,12 +43,16 @@ export default function AppHeader() {
           Mi agenda
         </NavLink>
       )}
-      <NavLink to="/reservar" className={enlaceClase} onClick={() => setMenuAbierto(false)}>
-        Reservar
-      </NavLink>
-      <NavLink to="/mis-citas" className={enlaceClase} onClick={() => setMenuAbierto(false)}>
-        Mis citas
-      </NavLink>
+      {esCliente && (
+        <>
+          <NavLink to="/reservar" className={enlaceClase} onClick={() => setMenuAbierto(false)}>
+            Reservar
+          </NavLink>
+          <NavLink to="/mis-citas" className={enlaceClase} onClick={() => setMenuAbierto(false)}>
+            Mis citas
+          </NavLink>
+        </>
+      )}
       <NavLink to="/perfil" className={enlaceClase} onClick={() => setMenuAbierto(false)}>
         Mi perfil
       </NavLink>

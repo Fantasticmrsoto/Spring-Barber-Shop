@@ -12,6 +12,8 @@ const {
   solicitarCancelacionCita,
   confirmarReembolsoCita,
   rechazarCancelacionCita,
+  eliminarCita,
+  completarPagoCita,
 } = require('../controllers/citaController');
 const { verificarToken, verificarRol } = require('../middlewares/authMiddleware');
 const { subirArchivo } = require('../config/subidas');
@@ -71,6 +73,13 @@ router.put('/:id/reembolso/rechazar', verificarToken, verificarRol(['administrad
 
 // Reprogramar una cita
 router.put('/:id', verificarToken, reprogramarCita);
+
+// Marcar el pago de una cita como realizado (cobro en el local, efectivo o
+// tarjeta). Solo el administrador: es quien cobra en el mostrador.
+router.put('/:id/pago/completar', verificarToken, verificarRol(['administrador']), completarPagoCita);
+
+// Borrar una cita de la agenda. Solo el administrador.
+router.delete('/:id', verificarToken, verificarRol(['administrador']), eliminarCita);
 
 
 module.exports = router;

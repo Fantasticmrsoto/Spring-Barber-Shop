@@ -518,6 +518,16 @@ const crearCita = async (req, res) => {
     });
   }
 
+  // La cuenta del administrador es de trabajo, no de cliente: no agenda citas
+  // para sí mismo. Para eso está la reserva manual del panel, que es donde el
+  // administrador agenda citas para los demás.
+  if (rol === 'administrador' && !esInvitado && clienteId === usuarioId) {
+    return res.status(403).json({
+      ok: false,
+      message: 'El administrador no puede agendar citas en su propia cuenta. Usa la reserva manual del panel para agendar a un cliente.'
+    });
+  }
+
   // El pago elegido al reservar (pago móvil con comprobante o efectivo/tarjeta
   // pendiente de cobrar en el local).
   const { pago, error: errorPago } = leerPagoDeReserva(req);
@@ -1126,6 +1136,141 @@ const rechazarCancelacionCita = async (req, res) => {
   }
 };
 
+/*
+ * 10. Eliminar una cita
+ *
+ * Es una acción de administración: borra la cita de la agenda (y su pago, que
+ * se va en cascada). Se usa para limpiar citas de prueba o citas que se
+ * agendaron dos veces.
+ */
+const eliminarCita = async (req, res) => {
+  const citaId = idValido(req.params.id);
+
+  if (!citaId) {
+    return res.status(400).json({
+      ok: false,
+      message: 'El ID de la cita debe ser un número entero válido',
+    });
+  }
+
+  try {
+    const resultado = await db.query(
+      'DELETE FROM cita WHERE "citaID" = $1 RETURNING "citaID"',
+      [citaId],
+    );
+
+    if (resultado.rows.length === 0) {
+      return res.status(404).json({ ok: false, message: 'Cita no encontrada' });
+    }
+
+    res.json({
+      ok: true,
+      message: 'Cita eliminada exitosamente',
+      citaID: resultado.rows[0].citaID,
+    });
+  } catch (error) {
+    errorInterno(res, error, 'Eliminar Cita');
+  }
+};
+
+/*
+ * 11. Marcar el pago de una cita como realizado
+ *
+ * Es el cobro en el local (efectivo o tarjeta): el cliente ya recibió el
+ * servicio —por eso el bloque de esa hora ya quedó libre— y ahora paga. El
+ * administrador lo apunta y la cita pasa de "pago pendiente" a "pagada".
+ *
+ * A diferencia de aprobar un comprobante de pago móvil, esto **no cambia el
+ * estado de la cita**: el servicio ya se hizo, la cita sigue como estaba.
+ */
+const completarPagoCita = async (req, res) => {
+  const citaId = idValido(req.params.id);
+
+  if (!citaId) {
+    return res.status(400).json({
+      ok: false,
+      message: 'El ID de la cita debe ser un número entero válido',
+    });
+  }
+
+  try {
+    const resultado = await db.withTransaction(async (client) => {
+      const actual = await client.query(
+        `SELECT c."citaID", c."clienteID", c.estado, c.pago_metodo, c.pago_estado,
+                s.precio
+         FROM cita c
+         JOIN servicios s ON s."serviciosID" = c."servicioID"
+         WHERE c."citaID" = $1`,
+        [citaId],
+      );
+
+      if (actual.rows.length === 0) {
+        return { error: { status: 404, message: 'Cita no encontrada' } };
+      }
+
+      const cita = actual.rows[0];
+
+      if (!cita.pago_metodo) {
+        return {
+          error: {
+            status: 400,
+            message: 'Esta cita no tiene método de pago: agrégalo al agendar la cita.',
+          },
+        };
+      }
+
+      if (cita.pago_metodo === 'pago_movil') {
+        return {
+          error: {
+            status: 400,
+            message: 'El pago móvil se aprueba o se rechaza desde su comprobante.',
+          },
+        };
+      }
+
+      if (cita.pago_estado === 'completado') {
+        return { error: { status: 400, message: 'El pago de esta cita ya estaba realizado' } };
+      }
+
+      if (cita.estado === 'cancelada' || cita.estado === 'denegada') {
+        return {
+          error: {
+            status: 400,
+            message: 'Esta cita está cancelada: no tiene un pago que registrar.',
+          },
+        };
+      }
+
+      // Se anota el cobro en el libro de pagos y la cita pasa a "pagada".
+      const pago = await registrarPagoCita(client, {
+        citaId,
+        clienteId: cita.clienteID,
+        metodo: cita.pago_metodo,
+        estado: 'completado',
+        monto: Number(cita.precio),
+        referencia: 'Cobro en el local',
+      });
+
+      const completa = await client.query(`${SELECT_CITA} WHERE c."citaID" = $1`, [citaId]);
+
+      return { cita: completa.rows[0], pago };
+    });
+
+    if (resultado.error) {
+      return res.status(resultado.error.status).json({ ok: false, message: resultado.error.message });
+    }
+
+    res.json({
+      ok: true,
+      message: 'Pago marcado como realizado',
+      cita: resultado.cita,
+      transaccion: { ...resultado.pago, monto: Number(resultado.pago.monto) },
+    });
+  } catch (error) {
+    errorInterno(res, error, 'Completar Pago Cita');
+  }
+};
+
 module.exports = {
   obtenerCitas,
   obtenerOcupados,
@@ -1138,4 +1283,6 @@ module.exports = {
   solicitarCancelacionCita,
   confirmarReembolsoCita,
   rechazarCancelacionCita,
+  eliminarCita,
+  completarPagoCita,
 };

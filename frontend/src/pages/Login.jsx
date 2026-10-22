@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
+import { destinoDe } from '../auth/destino'
 import { mensajeDeError } from '../api/client'
 import { inputClase } from '../ui/estilos'
 import logo from '../assets/logo-spring.jpg'
@@ -32,10 +33,10 @@ export default function Login() {
     setEnviando(true)
     try {
       const identificador = form.correo.trim()
-      await iniciarSesion(identificador, form.password)
+      const perfil = await iniciarSesion(identificador, form.password)
       if (recordar) localStorage.setItem(ULTIMO_USUARIO_KEY, identificador)
       else localStorage.removeItem(ULTIMO_USUARIO_KEY)
-      navigate(location.state?.desde || '/', { replace: true })
+      navigate(destinoDe(perfil, location.state?.desde), { replace: true })
     } catch (err) {
       setError(mensajeDeError(err))
     } finally {

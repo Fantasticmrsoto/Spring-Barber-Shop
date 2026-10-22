@@ -5,14 +5,18 @@ import {
   aprobarPago,
   rechazarPago,
 } from '../../api/transacciones'
-import { getCitas } from '../../api/citas'
+import { getCitas, completarPagoCita } from '../../api/citas'
 import { mensajeDeError } from '../../api/client'
 import { precio, fechaHora, urlImagen } from '../../utils/formato'
 import EstadoPagoBadge from '../../components/EstadoPagoBadge'
 import { ESTADOS_PAGO, METODOS_PAGO } from '../../utils/pago'
-import { inputClase, botonPrimario, etiqueta, tarjeta } from '../../ui/estilos'
+import { inputClase, botonPrimario, botonExito, etiqueta, tarjeta } from '../../ui/estilos'
 
 const FILTROS = ['todas', 'pendiente', 'completado', 'rechazado']
+
+// Métodos que se cobran en el mostrador: no dejan comprobante que revisar, así
+// que su pago se apunta a mano cuando el cliente paga.
+const METODOS_EN_LOCAL = ['efectivo', 'tarjeta']
 
 export default function AdminTransacciones() {
   const [pagos, setPagos] = useState([])
@@ -26,6 +30,9 @@ export default function AdminTransacciones() {
   const [metodo, setMetodo] = useState('')
   const [ocupada, setOcupada] = useState(null)
   const [rechazando, setRechazando] = useState(null)
+  // Cita del cobro en el local que se está apuntando (ids distintos de los de
+  // las transacciones: van en su propio estado para no pisarse).
+  const [cobrando, setCobrando] = useState(null)
 
   const [form, setForm] = useState({ citaID: '', metodo_pago: 'efectivo', monto: '', referencia_pago: '' })
   const [enviando, setEnviando] = useState(false)
@@ -54,6 +61,27 @@ export default function AdminTransacciones() {
   }, [pagos, filtro, metodo])
 
   const pendientes = useMemo(() => pagos.filter((p) => p.estado === 'pendiente').length, [pagos])
+
+  /*
+   * Cobros que faltan en el local.
+   *
+   * Cuando el cliente reservó pagando en efectivo o con tarjeta, la cita
+   * quedó con el pago "pendiente" y sin comprobante que revisar (esos pagos
+   * no dejan fila en el libro de pagos: solo la etiqueta en la cita). Aquí se
+   * listan para que el administrador apunte el cobro en cuanto la persona
+   * paga: el servicio ya se consumió —el bloque de esa hora ya quedó libre—
+   * y lo que falta es pasarlo de "pendiente" a "realizado".
+   */
+  const cobrosPendientes = useMemo(
+    () =>
+      citas
+        .filter(
+          (c) =>
+            METODOS_EN_LOCAL.includes(c.pago_metodo) && c.pago_estado === 'pendiente',
+        )
+        .sort((a, b) => String(a.fecha_inicio).localeCompare(String(b.fecha_inicio))),
+    [citas],
+  )
 
   function cambio(e) {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
@@ -84,6 +112,30 @@ export default function AdminTransacciones() {
       setAviso(mensajeDeError(err))
     } finally {
       setEnviando(false)
+    }
+  }
+
+  /*
+   * Pasar un cobro del local de "pendiente" a "realizado".
+   *
+   * La persona ya took el servicio y ya pagó: lo que se hace es dejar el
+   * registro. El estado de la cita no se toca (el servicio ya se hizo).
+   */
+  async function marcarRealizado(cita) {
+    setAviso(null)
+    setCobrando(cita.citaID)
+    try {
+      const actualizada = await completarPagoCita(cita.citaID)
+      setCitas((prev) =>
+        prev.map((c) => (c.citaID === actualizada.citaID ? { ...c, ...actualizada } : c)),
+      )
+      // El cobro entra en el libro de pagos: se recarga la lista.
+      setRecarga((n) => n + 1)
+      setAviso('Cobro marcado como realizado.')
+    } catch (err) {
+      setAviso(mensajeDeError(err))
+    } finally {
+      setCobrando(null)
     }
   }
 
@@ -151,9 +203,73 @@ export default function AdminTransacciones() {
           </p>
         )}
 
+        {aviso && <p className="mb-3 text-sm text-amber-200">{aviso}</p>}
+
+        {/*
+          Cobros del local: citas reservadas con efectivo o tarjeta cuyo pago
+          todavía no se ha apuntado. Es el punto donde el administrador pasa el
+          cobro de "pendiente" a "realizado".
+        */}
+        <section className="mb-6 rounded-xl border border-gold-500/30 bg-gold-500/5 p-4">
+          <h2 className="font-display text-sm uppercase tracking-widest text-gold-400">
+            Cobros pendientes en el local
+          </h2>
+          <p className="mt-1 text-xs text-cream-200/60">
+            Citas reservadas con efectivo o tarjeta que ya se consumieron. Cuando el
+            cliente paga en el mostrador, márcalo como realizado.
+          </p>
+
+          {!cargando && cobrosPendientes.length === 0 ? (
+            <p className="mt-3 text-sm text-cream-200/60">
+              No hay cobros pendientes en el local.
+            </p>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {cobrosPendientes.map((c) => (
+                <div
+                  key={c.citaID}
+                  className="flex flex-wrap items-center gap-3 rounded-lg border border-white/10 bg-ink-800 px-4 py-3"
+                >
+                  <div className="min-w-[11rem]">
+                    <p className="text-sm font-semibold text-cream-50">
+                      {fechaHora(c.fecha_inicio)}
+                    </p>
+                    <p className="text-xs text-cream-200/50">
+                      {c.servicio_nombre} · {c.cliente_nombre} {c.cliente_apellido}
+                    </p>
+                    {c.barbero_nombre && (
+                      <p className="text-xs text-cream-200/50">
+                        {c.barbero_nombre} {c.barbero_apellido}
+                      </p>
+                    )}
+                  </div>
+
+                  <span className="rounded-full bg-white/10 px-3 py-1 text-xs uppercase tracking-wider text-cream-200">
+                    {METODOS_PAGO[c.pago_metodo] ?? c.pago_metodo}
+                  </span>
+                  <EstadoPagoBadge estado={c.pago_estado} metodo={c.pago_metodo} />
+
+                  <div className="ml-auto flex items-center gap-3">
+                    <span className="text-sm font-semibold text-gold-300">
+                      {precio(c.precio)}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={cobrando === c.citaID}
+                      onClick={() => marcarRealizado(c)}
+                      className={botonExito}
+                    >
+                      {cobrando === c.citaID ? 'Guardando…' : 'Marcar como realizado'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
         {cargando && <p className="text-cream-200/70">Cargando pagos…</p>}
         {error && <p className="text-red-400">{error}</p>}
-        {aviso && <p className="mb-3 text-sm text-amber-200">{aviso}</p>}
 
         {!cargando && !error && visibles.length === 0 && (
           <p className="text-cream-200/60">No hay pagos para mostrar.</p>

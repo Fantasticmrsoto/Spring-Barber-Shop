@@ -200,6 +200,29 @@ usuario ──┬──< cita >────┬── barbero ──< barbero_ser
 borra un barbero, se borran sus citas, sus horarios y sus asignaciones de
 servicio, sin dejar basura colgando.
 
+**Qué se borra cuando el administrador quita a alguien del equipo.** El panel
+tiene un botón "Eliminar" que borra la **ficha** `barbero` (no la cuenta de
+`usuario`): la cuenta sigue existiendo con su historial, y esa persona deja de
+atender. La cascada se lleva por delante:
+
+```
+barbero
+├── horario_laboral      (sus franjas de la semana)
+├── barbero_servicio    (los servicios que ofrecía)
+└── cita                (sus citas)
+    └── transacciones   (los pagos de esas citas)
+```
+
+Por eso la API **no borra a un barbero que tenga citas por delante** (en estado
+`pendiente` o `confirmada` y con la fecha todavía por pasar): esas citas las
+esperan unos clientes y desaparecerían sin avisar. La respuesta es un `409` que
+pide cancelar o completar esas citas primero. Cuando el borrado sí procede, la
+API devuelve un resumen (`citasEliminadas`, `horariosEliminados`,
+`serviciosEliminados`) para que el panel diga qué se fue.
+
+Lo mismo con las citas: `DELETE /api/citas/:id` (solo administrador) borra la
+cita y, en cascada, su pago en `transacciones`.
+
 ---
 
 ## 4. Reglas de integridad (lo que la base impide)

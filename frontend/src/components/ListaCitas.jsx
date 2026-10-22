@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { cambiarEstadoCita, reprogramarCita, solicitarCancelacionCita, confirmarReembolsoCita, rechazarCancelacionCita } from '../api/citas'
+import { cambiarEstadoCita, reprogramarCita, solicitarCancelacionCita, confirmarReembolsoCita, rechazarCancelacionCita, eliminarCita } from '../api/citas'
 import { mensajeDeError } from '../api/client'
 import { fechaHora, aInputFechaHora, precio, nombreCliente } from '../utils/formato'
 import { ESTADOS_CITA, mensajeDenegacion } from '../utils/pago'
+import { botonEliminar } from '../ui/estilos'
 import EstadoPagoBadge from './EstadoPagoBadge'
 
 const ESTADOS = ESTADOS_CITA
@@ -107,7 +108,11 @@ export function AccionesClienteCita({ cita, onCambio, setError }) {
 //       | 'barbero' (como 'equipo', pero sin los datos personales del cliente
 //         ni los del pago: el barbero solo necesita la hora, el servicio y el
 //         nombre de quien viene)
-export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
+//
+// `onEliminar` es opcional: si se pasa, la lista ofrece borrar la cita. Solo
+// el panel de administración lo usa, porque es el único sitio desde donde se
+// puede borrar una cita.
+export default function ListaCitas({ citas, modo = 'cliente', onCambio, onEliminar }) {
   const [error, setError] = useState(null)
   const [ocupada, setOcupada] = useState(null)
 
@@ -182,6 +187,30 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
     try {
       const actualizada = await rechazarCancelacionCita(cita.citaID, 'Reembolso no aprobado')
       onCambio?.(actualizada)
+    } catch (e) {
+      setError(mensajeDeError(e))
+    } finally {
+      setOcupada(null)
+    }
+  }
+
+  /*
+   * Borrar una cita de la agenda (solo el administrador).
+   *
+   * Es definitivo: la cita y su pago se borran de la base de datos, así que se
+   * pregunta antes de hacerlo.
+   */
+  async function borrar(cita) {
+    const ok = window.confirm(
+      `¿Eliminar la cita del ${fechaHora(cita.fecha_inicio)}?\n\n` +
+        'Se borra de la agenda y con ella su pago. No se puede deshacer.',
+    )
+    if (!ok) return
+    setError(null)
+    setOcupada(cita.citaID)
+    try {
+      await eliminarCita(cita.citaID)
+      onEliminar?.(cita.citaID)
     } catch (e) {
       setError(mensajeDeError(e))
     } finally {
@@ -301,6 +330,9 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
             // cancelación solicitada.
             const esSolicitudAdmin = modo === 'equipo' && cita.estado === 'cancelacion_solicitada'
 
+            // Borrar la cita: solo el panel de administración lo ofrece.
+            const puedeEliminar = modo === 'equipo' && Boolean(onEliminar)
+
             return (
               <article
                 key={cita.citaID}
@@ -387,7 +419,7 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
                   </p>
                 )}
 
-                {(acciones.length > 0 || modo === 'cliente' || puedeReprogramar || esSolicitudAdmin) && (
+                {(acciones.length > 0 || modo === 'cliente' || puedeReprogramar || esSolicitudAdmin || puedeEliminar) && (
                   <div className="flex flex-wrap gap-2 sm:ml-auto">
                     {esSolicitudAdmin && (
                       <>
@@ -434,6 +466,16 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio }) {
                       </button>
                     )}
                     {modo === 'cliente' && <AccionesClienteCita cita={cita} onCambio={onCambio} setError={setError} />}
+                    {puedeEliminar && (
+                      <button
+                        type="button"
+                        disabled={ocupada === cita.citaID}
+                        onClick={() => borrar(cita)}
+                        className={`${botonEliminar} sm:py-1.5`}
+                      >
+                        Eliminar
+                      </button>
+                    )}
                   </div>
                 )}
 

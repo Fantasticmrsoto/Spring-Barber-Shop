@@ -6,7 +6,7 @@ import {
   eliminarUsuario,
 } from '../../api/usuarios'
 import { mensajeDeError } from '../../api/client'
-import { inputClase, botonPrimario, botonSecundario, etiqueta, tarjeta } from '../../ui/estilos'
+import { inputClase, botonPrimario, botonSecundario, botonEditar, botonEliminar, etiqueta, tarjeta } from '../../ui/estilos'
 
 const VACIO = {
   usuarioID: null,
@@ -131,14 +131,14 @@ export default function AdminUsuarios() {
                 <button
                   type="button"
                   onClick={() => editar(u)}
-                  className="text-xs uppercase tracking-wider text-gold-300 hover:text-gold-200"
+                  className={botonEditar}
                 >
                   Editar
                 </button>
                 <button
                   type="button"
                   onClick={() => borrar(u)}
-                  className="text-xs uppercase tracking-wider text-red-300 hover:text-red-200"
+                  className={botonEliminar}
                 >
                   Eliminar
                 </button>

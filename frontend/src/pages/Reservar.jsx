@@ -533,6 +533,39 @@ export default function Reservar() {
     )
   }
 
+  /*
+   * El administrador no agenda citas en su propia cuenta.
+   *
+   * Su cuenta es de trabajo, no de cliente: las citas de la peluquería se
+   * agendan desde el panel (pestaña "Nueva cita"), eligiendo el cliente al que
+   * se le agenda. Aquí solo se le ofrece el camino correcto.
+   */
+  if (usuario?.rol === 'administrador') {
+    return (
+      <div className="min-h-screen bg-ink-950">
+        <AppHeader />
+        <div className="mx-auto max-w-lg px-4 py-12 sm:px-5 sm:py-16">
+          <div className="rounded-2xl border border-gold-500/30 bg-gold-500/5 p-5 sm:p-8">
+            <h1 className="font-display text-xl font-bold uppercase tracking-wide text-gold-300 sm:text-2xl">
+              Reserva manual
+            </h1>
+            <p className="mt-3 text-cream-200/80">
+              Tu cuenta es de administración, no de cliente: no puedes agendar citas
+              para ti mismo. Las citas se agendan desde el panel de administración,
+              eligiendo el cliente al que se le agenda.
+            </p>
+            <Link
+              to="/admin"
+              className="mt-5 inline-block rounded-full bg-gold-500 px-6 py-3 text-sm font-semibold uppercase tracking-wider text-ink-950 transition hover:bg-gold-400"
+            >
+              Ir al panel de administración
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // Foto de referencia del barbero elegido, para los que no tienen foto
   // subida. Se calcula una vez y se reutiliza en el resumen.
   const fotoBarberoActual = barbero ? fotoBarbero(barbero.barberoID) : null

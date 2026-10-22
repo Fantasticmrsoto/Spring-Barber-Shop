@@ -25,8 +25,13 @@ export default function AdminCitas() {
     )
   }
 
+  // La cita se borró: sale de la lista.
+  function quitar(citaID) {
+    setCitas((prev) => prev.filter((c) => c.citaID !== citaID))
+  }
+
   if (cargando) return <p className="text-cream-200/70">Cargando citas…</p>
   if (error) return <p className="text-red-400">{error}</p>
 
-  return <ListaCitas citas={citas} modo="equipo" onCambio={actualizar} />
+  return <ListaCitas citas={citas} modo="equipo" onCambio={actualizar} onEliminar={quitar} />
 }

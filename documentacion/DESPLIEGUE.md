@@ -311,6 +311,30 @@ algún día quitas Cloudflare del camino, el sitio sigue teniendo HTTPS.
 - [ ] La contraseña de PostgreSQL de Neon no está en el repositorio.
 - [ ] `git status` no muestra ficheros `.env` sin trackear.
 
+### Comprobar el panel de administración en la nube
+
+Después de desplegar, esta lista es el recorrido mínimo para saber que todo
+anda. Cada punto es una de las cosas que hace el panel:
+
+| Comprobación | Cómo se hace | Qué tiene que pasar |
+|---|---|---|
+| El administrador entra a **su** panel | Inicia sesión con la cuenta de administrador |aterriza en `/admin`, no en la portada ni en "Reservar" |
+| El barbero entra a **su** agenda | Inicia sesión con la cuenta de barbero | aterriza en `/barbero` |
+| El cliente vuelve a **donde venía** | Inicia sesión con una cuenta de cliente | aterriza en la página que intentaba abrir (o en `/`) |
+| El administrador **no agenda para sí mismo** | Pestaña "Citas" → "Nueva cita" | La lista de clientes **solo** tiene clientes: la cuenta de administración no aparece |
+| Se puede **borrar un barbero** | Pestaña "Barberos" → "Eliminar" | Pide confirmación y, al confirmar, dice cuántas citas, horarios y servicios se fueron |
+| Se puede **borrar una cita** | Pestaña "Citas" → "Eliminar" | La cita sale de la agenda y con ella su pago |
+| Los **cobros del local** se pueden cerrar | Pestaña "Pagos" → "Cobros pendientes en el local" | Las citas pagadas con efectivo o tarjeta salen listadas y "Marcar como realizado" las pasa a pagado |
+
+> **Los borrados son definitivos.** Por eso la web pide confirmación antes de
+> llamar a la API y la API avisa (con un `409`) cuando un barbero tiene citas
+> por delante: esas citas las esperan unos clientes.
+
+> **El administrador no necesita la página "Reservar".** Su cuenta es de
+> trabajo, no de cliente: el enlace "Reservar" no aparece en su menú y la API
+> rechaza (`403`) que agende una cita en su propia cuenta. Para agendar para
+> un cliente, la reserva manual del panel.
+
 ---
 
 ## Problemas frecuentes
@@ -408,6 +432,26 @@ con el dominio de la web: `https://springbarbershop.com`.
 **La web da 404 al recargar en una ruta interna** (`/reservar`, `/login`)
 → Falta la reescritura de SPA. En Vercel la resuelve `frontend/vercel.json`
 (`rewrites`); en el modo de un solo servicio, la resuelve Express.
+
+**Las fotos de los barberos y los comprobantes de pago desaparecen**
+→ Los archivos subidos se guardan en `backend/uploads`, que en Render es un
+**disco efímero**: en cada redespliegue (o cuando el servicio se apaga y
+vuelve, o cuando Render migra la instancia) el directorio se crea vacío otra
+vez. Las fotos que se habían subido y los comprobantes que enviaron los
+clientes se pierden, aunque las filas de la base de datos sigan ahí.
+
+Qué hacer, de menos a más trabajo:
+
+| Opción | Cómo | Coste |
+|---|---|---|
+| **Aceptarlo** (plan de pruebas) | No hay nada que hacer: se vuelven a subir a mano | 0 |
+| **Disco persistente** | Render → *Disks* → crear un disco y montarlo en `/opt/render/project/src/backend/uploads` | El plan free no incluye discos; un Starter sí |
+| **Almacenamiento externo** | Guardar en un bucket (S3, Cloudflare R2, Supabase Storage) y servir por URL | Gratis en los planes pequeños |
+
+La API ya separa las dos cosas: la base de datos guarda la **etiqueta** del
+pago (`cita.pago_metodo`, `cita.pago_estado`) y la **ruta** del comprobante
+(`comprobante_url`). Si el archivo desaparece, la cita y su estado de pago
+siguen siendo válidos: no queda nada roto a medias.
 
 **El build de Docker falla en Render**
 → Comprueba que el **Dockerfile Path** sea `./Dockerfile` y el **Context** sea
