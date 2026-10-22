@@ -45,6 +45,17 @@ export function AccionesClienteCita({ cita, onCambio, setError }) {
   const puedeSolicitarCancelacion = !['cancelada', 'denegada', 'completada', 'cancelacion_solicitada'].includes(cita.estado)
 
   async function solicitarCancelacion() {
+    // Es una acción que el cliente no puede deshacer él solo (el reembolso lo
+    // aprueba la peluquería), así que se pregunta antes de enviarla.
+    if (
+      !window.confirm(
+        '¿Pedir la cancelación y el reembolso de esta cita?\n\n' +
+          'La hora se libera de inmediato, pero la cita solo queda cancelada cuando ' +
+          'la peluquería confirme la devolución.'
+      )
+    ) {
+      return
+    }
     try {
       const actualizada = await solicitarCancelacionCita(cita.citaID)
       onCambio?.(actualizada)
