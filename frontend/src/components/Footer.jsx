@@ -42,6 +42,16 @@ export default function Footer() {
             <li>{CONTACTO.direccion}</li>
             <li>{CONTACTO.telefonoVisible}</li>
             <li>{CONTACTO.correo}</li>
+            <li>
+              <a
+                href={CONTACTO.mapaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gold-400 transition hover:text-gold-300"
+              >
+                Ver ubicación en Google Maps
+              </a>
+            </li>
           </ul>
         </div>
       </div>

@@ -6,6 +6,7 @@ export const CONTACTO = {
   telefonoVisible: '+58 412-4370853',
   correo: 'hola@springbarber.com',
   direccion: 'Cra. 00 #00-00, Ciudad',
+  mapaUrl: 'https://maps.app.goo.gl/bRkRzYhUH8iiJAJ2A?g_st=iw',
 }
 
 export function enlaceWhatsApp(mensaje) {
