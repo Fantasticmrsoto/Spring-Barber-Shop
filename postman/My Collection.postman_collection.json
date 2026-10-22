@@ -2813,6 +2813,114 @@
           }
         }
       ]
+    },
+    {
+      "name": "59 · Subir la foto del barbero",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "foto",
+              "type": "file",
+              "src": [
+                "../frontend/src/assets/logo-spring.jpg"
+              ]
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/api/barberos/{{barberoID}}/foto",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "barberos",
+            "{{barberoID}}",
+            "foto"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('sube la foto con 200', () => { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('guarda la ruta de la imagen', () => {",
+              "  pm.expect(json.barbero.foto_url).to.be.a('string');",
+              "  pm.expect(json.barbero.foto_url).to.include('/uploads/');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "60 · Quitar la foto del barbero",
+      "request": {
+        "method": "PUT",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"foto_url\": null\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/barberos/{{barberoID}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "barberos",
+            "{{barberoID}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('quita la foto con 200', () => { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('deja la foto vacía', () => {",
+              "  pm.expect(json.barbero.foto_url).to.eql(null);",
+              "});"
+            ]
+          }
+        }
+      ]
     }
   ]
 }
