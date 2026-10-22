@@ -28,14 +28,17 @@ const ETIQUETA = {
 // en la tarjeta destacada de "Mis citas".
 export function AccionesClienteCita({ cita }) {
   const puedeReprogramar = cita.estado === 'pendiente' || cita.estado === 'confirmada'
-  // Se puede pagar mientras la cita siga en pie y el pago no esté ya aprobado
-  // o en revisión. Si la cita se reservó para pagar en el local, el pago
-  // pendiente no impide pagar por pago móvil después.
+  // Ya no se muestra "Pagar" desde "Mis citas": si el pago queda pendiente
+  // (comprobante en revisión o pago en el local) no tiene sentido volver a pagar
+  // desde ahí, y si ya está completado tampoco.
+  const pagoPendienteOCompletado =
+    cita.pago_estado === 'pendiente' || cita.pago_estado === 'completado'
   const puedePagar =
+    !pagoPendienteOCompletado &&
     !['cancelada', 'denegada'].includes(cita.estado) &&
-    (!cita.pago_estado ||
-      cita.pago_estado === 'rechazado' ||
-      (cita.pago_estado === 'pendiente' && cita.pago_metodo !== 'pago_movil'))
+    (cita.pago_estado === 'rechazado' ||
+      (!cita.pago_estado && cita.pago_metodo !== 'pago_movil'))
+  const puedeRepetir = !pagoPendienteOCompletado && !['cancelada', 'denegada'].includes(cita.estado)
   return (
     <>
       {puedePagar && (
@@ -54,12 +57,14 @@ export function AccionesClienteCita({ cita }) {
           Reprogramar
         </Link>
       )}
-      <Link
-        to={`/reservar?barbero=${cita.barberoID}&servicio=${cita.servicioID}`}
-        className="rounded-full border border-gold-500/40 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gold-300 transition hover:bg-gold-500 hover:text-ink-950 sm:py-1.5"
-      >
-        Repetir
-      </Link>
+      {puedeRepetir && (
+        <Link
+          to={`/reservar?barbero=${cita.barberoID}&servicio=${cita.servicioID}`}
+          className="rounded-full border border-gold-500/40 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gold-300 transition hover:bg-gold-500 hover:text-ink-950 sm:py-1.5"
+        >
+          Repetir
+        </Link>
+      )}
     </>
   )
 }
