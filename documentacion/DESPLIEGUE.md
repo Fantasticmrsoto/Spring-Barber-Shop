@@ -202,6 +202,46 @@ API.
 
 ---
 
+## Paso 3b — La web en Render (sitio estático)
+
+La alternativa a Vercel es un **Static Site** de Render, que publica la web en
+su CDN. Se usa cuando ya tienes la API en Render.
+
+1. En Render → **New → Static Site** → el repositorio.
+2. **Build Command**: `cd frontend && npm install && npm run build`
+3. **Publish Path**: `./frontend/dist`
+4. **Environment Variables** → `VITE_API_URL` = la URL de tu API
+   (por ejemplo `https://spring-barber-shop.onrender.com`).
+5. **Deploy**.
+
+### ⚠️ Sin esto, la web se rompe al recargar
+
+Un sitio estático sirve archivos, no rutas: si en `/admin` o `/login` el
+servidor no encuentra el archivo, responde **404** y el panel de administración
+se queda en blanco. La web "funciona" mientras navegas con los botones (eso lo
+resuelve react-router en el navegador), pero en cuanto recargas o compartes el
+enlace de `/admin`, se rompe.
+
+La solución es una reescritura (*rewrite*) que sirva el `index.html` en
+cualquier ruta:
+
+- **En el panel**: *Settings → Redirects/Rewrites* → **Add** →
+  *Type*: **Rewrite** · *Source*: `/*` · *Destination*: `/index.html`.
+- **O en el repositorio**: ya está en `render.yaml`, en el servicio
+  `spring-barber-shop-frontend`.
+
+```yaml
+routes:
+  - type: rewrite
+    source: /*
+    destination: /index.html
+```
+
+Render no aplica las reglas a las rutas en las que ya existe un archivo, así
+que `/assets/...` y `/favicon.svg` se siguen sirviendo tal cual.
+
+---
+
 ## Paso 4 — El dominio propio
 
 1. Entra en <https://dash.cloudflare.com> y compra el dominio (Cloudflare lo
@@ -241,6 +281,17 @@ algún día quitas Cloudflare del camino, el sitio sigue teniendo HTTPS.
       registrar y reservar.
 - [ ] `https://api.springbarbershop.com/api/salud` devuelve `{"ok":true,"status":"sano"}`.
 - [ ] El login del administrador funciona.
+- [ ] **Existe la cuenta de administrador en la base de datos de la nube.**
+      Cada base de datos tiene sus propias cuentas: crear `admin@gmail.com` en
+      el PostgreSQL local **no** la crea en Neon, y al entrar en la nube el
+      login responde "Credenciales inválidas". Se crea con el script, apuntando
+      a la base de la nube:
+
+      ```bash
+      DATABASE_URL="postgresql://..." npm run admin:crear -- \
+        --correo admin@gmail.com --clave 123abc
+      ```
+
 - [ ] `VITE_API_URL` en Vercel apunta al dominio definitivo, no a `onrender.com`.
 - [ ] `JWT_SECRET` de Render **no** es `clave123` ni `cambiar_esto`.
 - [ ] La contraseña de PostgreSQL de Neon no está en el repositorio.
@@ -249,6 +300,25 @@ algún día quitas Cloudflare del camino, el sitio sigue teniendo HTTPS.
 ---
 
 ## Problemas frecuentes
+
+**"Credenciales inválidas" al entrar en la versión de la nube**
+→ La cuenta no existe en la base de datos de la nube. Cada instalación tiene
+la suya: la cuenta que creas en tu PostgreSQL local no aparece en Neon (ni al
+revés). Se crea con el script, apuntando a la base de la nube:
+
+```bash
+DATABASE_URL="postgresql://..." npm run admin:crear -- \
+  --correo admin@gmail.com --clave 123abc
+```
+
+Si no quieres dar la URL de la base, también sirve la **recuperación** de la
+web: *¿Olvidaste tu contraseña?* pide el correo y el teléfono de la cuenta, y
+los compara con los guardados. Con el teléfono correcto se cambia la clave sin
+necesitar la base de datos.
+
+**Al recargar en `/admin` (o al compartir ese enlace) sale "Not Found"**
+→ La web está en un sitio estático sin reescritura de SPA. Añade la regla
+*Rewrite: `/*` → `/index.html`* (ver el [Paso 3b](#paso-3b--la-web-en-render-sitio-estático)).
 
 **`password authentication failed for user 'neondb_owner'`**
 → La contraseña de Neon no es la correcta. Ojo: este error NO es de SSL ni del

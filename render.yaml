@@ -36,6 +36,32 @@ services:
       # Si la API vive en api.dominio.com, hay que restringirlo:
       # - key: CORS_ORIGIN
       #   value: https://springbarbershop.com,https://www.springbarbershop.com
+
+  # ---------------------------------------------------------------------------
+  # Sitio estático de la web (React + Vite). Render lo publica en su CDN.
+  #
+  # `routes` es lo que hace que la web funcione como una SPA: sin esa
+  # reescritura, al recargar en /admin o /login el servidor responde un 404 en
+  # vez de servir el index.html, y el panel de administración se queda en
+  # blanco. Equivalente a añadir en el panel la regla
+  # "Redirects/Rewrites > Rewrite: /*  ->  /index.html".
+  # ---------------------------------------------------------------------------
+  - type: web
+    runtime: static
+    name: spring-barber-shop-frontend
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/dist
+    autoDeploy: true
+    envVars:
+      # La web y la API están en servicios distintos: la web llama a la API
+      # por su URL completa. Si algún día se sirven desde el mismo dominio,
+      # esto se deja vacío y la API contesta en /api.
+      - key: VITE_API_URL
+        value: https://spring-barber-shop.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
 #
 # ---------------------------------------------------------------------------
 # Si en lugar de este blueprint se crea un "Web Service" con el runtime de
