@@ -8,7 +8,7 @@ import urlVideo from '../assets/video/inicio.mp4'
  *
  * El vídeo pesa unos 5 MB, así que no puede descargarse junto con la página:
  * si lo hiciera competiría con el contenido principal y la portada tardaría
- * más en verse. Por eso se hace en tres tiempos:
+ * más en verse. Por eso se hace en dos tiempos:
  *
  *   1. Se pinta primero el cartel (un AVIF de 16 KB, con un WebP de 27 KB
  *      de respaldo). Es lo que ve el visitante mientras tanto, y como es lo
@@ -17,8 +17,6 @@ import urlVideo from '../assets/video/inicio.mp4'
  *   2. El vídeo solo se pide cuando el bloque está a la vista y el navegador
  *      ya está libre (`requestIdleCallback`), de modo que no retrasa ni el
  *      pintado ni la interacción con la página.
- *   3. Si el visitante ha pedido menos movimiento (`prefers-reduced-motion`),
- *      el vídeo no se descarga nunca y se queda el cartel.
  *
  * El vídeo va sin sonido: es un fondo en bucle y, además, los navegadores
  * solo lo reproducen en automático si está silenciado.
@@ -35,8 +33,6 @@ export default function VideoHero({ className = '' }) {
 
   // Cuándo se decide descargar el vídeo.
   useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-
     // Sin IntersectionObserver no hay forma de saber si el bloque se ve:
     // se espera un momento y se carga igualmente.
     if (!('IntersectionObserver' in window)) {
@@ -68,6 +64,7 @@ export default function VideoHero({ className = '' }) {
     const v = video.current
     if (!v) return
     v.src = urlVideo
+    v.load()
     const promesa = v.play()
     if (promesa) promesa.catch(() => {})
   }, [pedirVideo])
@@ -92,6 +89,7 @@ export default function VideoHero({ className = '' }) {
         ref={video}
         muted
         loop
+        autoPlay
         playsInline
         preload="none"
         aria-hidden="true"
