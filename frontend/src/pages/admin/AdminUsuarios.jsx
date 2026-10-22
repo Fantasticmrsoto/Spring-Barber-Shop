@@ -83,7 +83,11 @@ export default function AdminUsuarios() {
           clave: form.clave,
           rol: form.rol,
         })
-        setAviso('Usuario creado.')
+        setAviso(
+          form.rol === 'barbero'
+            ? 'Usuario creado con su ficha de barbero (comisión 20%). Ajusta sus datos en la pestaña Barberos.'
+            : 'Usuario creado.',
+        )
       }
       setForm(VACIO)
       setRecarga((n) => n + 1)

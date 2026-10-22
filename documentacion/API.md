@@ -208,8 +208,8 @@ invitado. La respuesta del alta dice cuántas fueron:
 
 El teléfono se compara **solo con sus dígitos**, así que da igual si la reserva
 lo guardó como `0412 1234567` y la cuenta nueva lo teclea como `04121234567`. La
-web usa ese número para llevar al recién registrado a "Mis citas" en vez de a la
-página de reservas.
+web usa ese número para vincular esas reservas a la cuenta recién creada, que
+entra directamente a "Mis citas" sin pasar por el login.
 
 El alta y la vinculación van en la misma transacción: o la cuenta existe y sus
 citas quedan colgando de ella, o no existe ninguna de las dos.
@@ -232,6 +232,11 @@ sea un administrador.
 Si el `rol` no es uno de `cliente`, `barbero` o `administrador`, la respuesta es
 `400` (es el CHECK de la columna).
 
+Cuando un administrador crea una cuenta con `rol: "barbero"`, la API crea también
+su ficha de barbero en la misma transacción (comisión `20` y activa), para que esa
+persona pueda entrar a su panel desde el primer inicio de sesión. La ficha se
+ajusta después en la pestaña **Barberos**.
+
 ### Listar y editar usuarios de otros es solo del administrador
 
 `GET /api/usuarios`, `GET /api/usuarios/:id`, `PUT /api/usuarios/:id` y
@@ -249,6 +254,12 @@ cambia la contraseña (mínimo 6 caracteres) y no toca nada más.
 | `403` | Rol insuficiente, o se pidió un `rol` que no se puede dar |
 | `404` | El usuario no existe (en `:id`) |
 | `400` | Correo ya registrado |
+| `400` | Se intenta dejar como `cliente` a alguien que tiene ficha de barbero |
+
+El rol y la ficha de barbero se mantienen juntos. En `PUT /api/usuarios/:id`,
+cambiar el rol a `barbero` crea la ficha si aún no la tiene (comisión `20`), pero
+**no se puede** volver a `cliente` a quien ya tiene ficha: primero hay que
+eliminarlo en **Barberos**, que además borra sus horarios, servicios y citas.
 
 **Aviso:** el `UNIQUE` de correo distingue mayúsculas. `Ada@x.com` y `ada@x.com` son
 cuentas distintas.
@@ -311,7 +322,9 @@ Un `barbero` o un `cliente` que lo intentan reciben un `403`.
 ```
 
 `estado` es opcional y por defecto `true` (barbero activo). **Un usuario solo puede
-ser barbero una vez.**
+ser barbero una vez.** Al crear la ficha, si la cuenta era `cliente` pasa a
+`barbero` en la misma transacción, para que al iniciar sesión entre directo a su
+panel. Un `administrador` conserva su rol y su acceso al panel de administración.
 
 ### Editar un barbero
 
@@ -337,7 +350,8 @@ editar la ficha de otro barbero, también.
 
 `DELETE /api/barberos/:id` (solo `administrador`) **borra la ficha de barbero**,
 no la cuenta de usuario: la cuenta sigue existiendo (con su historial) y esa
-persona deja de atender en la peluquería.
+persona deja de atender en la peluquería. Su rol vuelve a `cliente`, así que
+puede seguir reservando como cualquier otro cliente.
 
 Al borrar la ficha se van en cascada sus horarios, sus servicios asignados y sus
 citas (con los pagos de esas citas). La respuesta dice cuánto se fue:

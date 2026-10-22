@@ -92,48 +92,63 @@ const crearBarbero = async (req, res) => {
   }
 
   try {
-    const resultado = await db.query(
-      `
-        WITH usuario_valido AS (
-          SELECT "usuarioID"
-          FROM usuario
-          WHERE "usuarioID" = $1
-        ),
-        barbero_creado AS (
-          INSERT INTO barbero ("usuarioID", comision, estado)
-          SELECT "usuarioID", $2, $3
-          FROM usuario_valido
-          RETURNING "barberoID", "usuarioID", comision, estado, descripcion,
-                    especialidad, instagram, telefono_contacto, foto_url
-        )
-        SELECT
-          b."barberoID",
-          b."usuarioID",
-          u.nombre,
-          u.apellido,
-          u.correo,
-          u.telefono,
-          b.comision,
-          b.estado,
-          b.descripcion,
-          b.especialidad,
-          b.instagram,
-          b.telefono_contacto,
-          b.foto_url
-        FROM barbero_creado b
-        JOIN usuario u ON u."usuarioID" = b."usuarioID"
-      `,
-      [usuarioId, comisionNumerica, estadoValor]
-    );
+    const barbero = await db.withTransaction(async (client) => {
+      const resultado = await client.query(
+        `
+          WITH usuario_valido AS (
+            SELECT "usuarioID"
+            FROM usuario
+            WHERE "usuarioID" = $1
+          ),
+          barbero_creado AS (
+            INSERT INTO barbero ("usuarioID", comision, estado)
+            SELECT "usuarioID", $2, $3
+            FROM usuario_valido
+            RETURNING "barberoID", "usuarioID", comision, estado, descripcion,
+                      especialidad, instagram, telefono_contacto, foto_url
+          )
+          SELECT
+            b."barberoID",
+            b."usuarioID",
+            u.nombre,
+            u.apellido,
+            u.correo,
+            u.telefono,
+            b.comision,
+            b.estado,
+            b.descripcion,
+            b.especialidad,
+            b.instagram,
+            b.telefono_contacto,
+            b.foto_url
+          FROM barbero_creado b
+          JOIN usuario u ON u."usuarioID" = b."usuarioID"
+        `,
+        [usuarioId, comisionNumerica, estadoValor]
+      );
 
-    if (resultado.rows.length === 0) {
+      if (resultado.rows.length === 0) return null;
+
+      // La ficha y el rol de la cuenta van juntos: sin este UPDATE la persona
+      // quedaba con ficha de barbero pero seguía entrando como cliente. Solo se
+      // asciende a quien era cliente; un administrador conserva su rol (y su
+      // acceso al panel de administración) aunque también atienda.
+      await client.query(
+        `UPDATE usuario SET rol = 'barbero' WHERE "usuarioID" = $1 AND rol = 'cliente'`,
+        [usuarioId]
+      );
+
+      return resultado.rows[0];
+    });
+
+    if (!barbero) {
       return res.status(404).json({ ok: false, message: 'Usuario no encontrado' });
     }
 
     res.status(201).json({
       ok: true,
       message: 'Barbero creado exitosamente',
-      barbero: resultado.rows[0]
+      barbero
     });
   } catch (error) {
     if (error.code === '23503') {
@@ -413,8 +428,16 @@ const eliminarBarbero = async (req, res) => {
       );
 
       const borrado = await client.query(
-        'DELETE FROM barbero WHERE "barberoID" = $1 RETURNING "barberoID"',
+        'DELETE FROM barbero WHERE "barberoID" = $1 RETURNING "barberoID", "usuarioID"',
         [barberoId]
+      );
+
+      // La cuenta sigue existiendo, pero deja de ser barbero: vuelve a cliente
+      // para que pueda reservar como cualquier otra persona. Si era
+      // administrador, conserva su rol.
+      await client.query(
+        `UPDATE usuario SET rol = 'cliente' WHERE "usuarioID" = $1 AND rol = 'barbero'`,
+        [borrado.rows[0].usuarioID]
       );
 
       return {

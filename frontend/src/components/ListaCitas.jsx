@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { cambiarEstadoCita, reprogramarCita, solicitarCancelacionCita, confirmarReembolsoCita, rechazarCancelacionCita, eliminarCita } from '../api/citas'
 import { mensajeDeError } from '../api/client'
@@ -8,8 +8,6 @@ import { botonEliminar } from '../ui/estilos'
 import EstadoPagoBadge from './EstadoPagoBadge'
 
 const ESTADOS = ESTADOS_CITA
-
-const FILTROS = ['todas', 'pendiente', 'confirmada', 'completada', 'cancelada', 'denegada', 'cancelacion_solicitada']
 
 const SIGUIENTES = {
   pendiente: ['confirmada', 'cancelada'],
@@ -120,11 +118,6 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio, onElimin
   const [reprogramando, setReprogramando] = useState(null)
   const [nuevaFecha, setNuevaFecha] = useState('')
 
-  // Filtros locales sobre la lista ya acotada por rol en el backend.
-  const [filtro, setFiltro] = useState('todas')
-  const [desde, setDesde] = useState('')
-  const [hasta, setHasta] = useState('')
-
   async function cambiar(cita, estado) {
     setError(null)
     setOcupada(cita.citaID)
@@ -218,18 +211,6 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio, onElimin
     }
   }
 
-  const filtradas = useMemo(() => {
-    return citas.filter((c) => {
-      if (filtro !== 'todas' && c.estado !== filtro) return false
-      const dia = String(c.fecha_inicio || '').slice(0, 10)
-      if (desde && dia < desde) return false
-      if (hasta && dia > hasta) return false
-      return true
-    })
-  }, [citas, filtro, desde, hasta])
-
-  const hayFiltros = filtro !== 'todas' || Boolean(desde) || Boolean(hasta)
-
   const puedeCancelarCliente = (estado) =>
     estado === 'pendiente' || estado === 'confirmada'
 
@@ -238,77 +219,17 @@ export default function ListaCitas({ citas, modo = 'cliente', onCambio, onElimin
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-2">
-        <div className="flex flex-wrap gap-1.5">
-          {FILTROS.map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setFiltro(f)}
-              className={`rounded-full px-3.5 py-2 text-xs font-semibold uppercase tracking-wider transition sm:py-1.5 ${
-                filtro === f
-                  ? 'bg-gold-500 text-ink-950'
-                  : 'border border-white/15 text-cream-200 hover:border-gold-400'
-              }`}
-            >
-              {f === 'todas' ? 'Todas' : ESTADOS[f].label}
-            </button>
-          ))}
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:ml-auto sm:flex sm:w-auto sm:flex-wrap sm:items-end sm:gap-2">
-          <label className="text-[0.65rem] uppercase tracking-wider text-cream-200/60">
-            Desde
-            <input
-              type="date"
-              value={desde}
-              onChange={(e) => setDesde(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-white/10 bg-ink-800 px-2.5 py-2 text-xs text-cream-50 outline-none focus:border-gold-500 sm:mt-0 sm:ml-2 sm:w-auto sm:py-1.5"
-            />
-          </label>
-          <label className="text-[0.65rem] uppercase tracking-wider text-cream-200/60">
-            Hasta
-            <input
-              type="date"
-              value={hasta}
-              onChange={(e) => setHasta(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-white/10 bg-ink-800 px-2.5 py-2 text-xs text-cream-50 outline-none focus:border-gold-500 sm:mt-0 sm:ml-2 sm:w-auto sm:py-1.5"
-            />
-          </label>
-          {hayFiltros && (
-            <button
-              type="button"
-              onClick={() => {
-                setFiltro('todas')
-                setDesde('')
-                setHasta('')
-              }}
-              className="col-span-2 justify-self-start rounded-full border border-white/15 px-3 py-1.5 text-xs uppercase tracking-wider text-cream-200/70 hover:border-gold-400 hover:text-gold-300 sm:col-span-1"
-            >
-              Limpiar
-            </button>
-          )}
-        </div>
-      </div>
-
-      {hayFiltros && (
-        <p className="text-xs text-cream-200/50">
-          Mostrando {filtradas.length} de {citas.length} citas
-        </p>
-      )}
-
       {error && (
         <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
           {error}
         </p>
       )}
 
-      {filtradas.length === 0 ? (
-        <p className="text-cream-200/60">
-          {citas.length === 0 ? 'No hay citas para mostrar.' : 'Ninguna cita coincide con el filtro.'}
-        </p>
+      {citas.length === 0 ? (
+        <p className="text-cream-200/60">No hay citas para mostrar.</p>
       ) : (
         <div className="space-y-3">
-          {filtradas.map((cita) => {
+          {citas.map((cita) => {
             const estado = ESTADOS[cita.estado] ?? {
               label: cita.estado,
               clase: 'bg-white/10 text-cream-200',

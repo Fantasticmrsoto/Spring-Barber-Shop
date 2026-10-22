@@ -48,6 +48,10 @@ tabla, separados por el campo `rol`.
 `correo` es UNIQUE: una persona solo puede tener una cuenta. No hay CHECK sobre
 `rol`, así que el valor se valida en el código, no en la base.
 
+El rol y la ficha de barbero van juntos: al crear la ficha (pestaña **Barberos**)
+la cuenta pasa a `barbero`, y al borrar la ficha vuelve a `cliente`. Así, quien
+atiende en la peluquería entra directo a su panel de barbero.
+
 ### 2.2 `barbero` — el perfil profesional (15 filas)
 
 Extensión de `usuario`: añade lo que **solo** tiene un barbero.
@@ -162,7 +166,7 @@ movimiento de saldo de un usuario.
 `saldo_restante` guarda la foto del saldo tras cada movimiento: con eso, el
 saldo actual se lee con la última fila del usuario sin recalcular nada.
 
-### 2.9 `schema_migrations` — el control de cambios (8 filas)
+### 2.9 `schema_migrations` — el control de cambios (13 filas)
 
 | Campo | Tipo | Reglas |
 |---|---|---|

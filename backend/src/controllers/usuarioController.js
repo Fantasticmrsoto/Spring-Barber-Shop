@@ -124,6 +124,16 @@ const crearUsuario = async (req, res) => {
       const insertado = await client.query(query, valores);
       const nuevoUsuarioId = insertado.rows[0].usuarioID;
 
+      // Un usuario que nace como barbero necesita su ficha profesional desde el
+      // primer momento. Sin ella, al entrar en su sesión el panel de barbero no
+      // encontraba agenda ni perfil y parecía una cuenta de cliente.
+      if (rolFinal === 'barbero') {
+        await client.query(
+          'INSERT INTO barbero ("usuarioID", comision, estado) VALUES ($1, 20, true)',
+          [nuevoUsuarioId]
+        );
+      }
+
       // Las citas que el visitante hizo **sin cuenta** con este mismo teléfono
       // pasan a ser de esta cuenta.
       //
@@ -219,16 +229,61 @@ const actualizarUsuario = async (req, res) => {
     // Un rol vacío se guarda como null (para que el COALESCE lo conserve) en vez
     // de como "" que sí pisaría el rol del usuario.
     const valores = [nombre, apellido, correo, telefono, rol || null, claveHasheada, usuarioId];
-    const resultado = await db.query(query, valores);
 
-    if (resultado.rows.length === 0) {
+    // El rol y la ficha de barbero tienen que ir juntos: si se cambia el rol sin
+    // tocar la ficha, la persona queda como cliente (sin panel de barbero) pero
+    // sigue apareciendo en la agenda pública, o al revés.
+    const resultado = await db.withTransaction(async (client) => {
+      const actual = await client.query(
+        'SELECT rol FROM usuario WHERE "usuarioID" = $1 FOR UPDATE',
+        [usuarioId]
+      );
+
+      if (actual.rows.length === 0) return { estado: 'no_encontrado' };
+
+      const ficha = await client.query(
+        'SELECT 1 FROM barbero WHERE "usuarioID" = $1',
+        [usuarioId]
+      );
+      const tieneFicha = ficha.rows.length > 0;
+      const rolNuevo = rol || actual.rows[0].rol;
+
+      // Dejar como cliente a quien tiene ficha escondería su panel pero lo
+      // dejaría atendiendo: se quita desde Barberos, que además limpia horarios
+      // y citas de forma controlada.
+      if (rolNuevo === 'cliente' && tieneFicha) {
+        return { estado: 'tiene_ficha' };
+      }
+
+      const actualizado = await client.query(query, valores);
+
+      // Pasar a barbero crea la ficha con la comisión por defecto; el
+      // administrador la ajusta en la pestaña Barberos.
+      if (rolNuevo === 'barbero' && !tieneFicha) {
+        await client.query(
+          'INSERT INTO barbero ("usuarioID", comision, estado) VALUES ($1, 20, true)',
+          [usuarioId]
+        );
+      }
+
+      return { estado: 'ok', usuario: actualizado.rows[0] };
+    });
+
+    if (resultado.estado === 'no_encontrado') {
       return res.status(404).json({ ok: false, message: 'Usuario no encontrado' });
+    }
+
+    if (resultado.estado === 'tiene_ficha') {
+      return res.status(400).json({
+        ok: false,
+        message: 'Este usuario tiene ficha de barbero. Para dejarlo como cliente, elimínalo primero en la pestaña Barberos.'
+      });
     }
 
     res.json({
       ok: true,
       message: 'Usuario actualizado exitosamente',
-      usuario: resultado.rows[0]
+      usuario: resultado.usuario
     });
   } catch (error) {
     errorInterno(res, error, 'Actualizar Usuario');

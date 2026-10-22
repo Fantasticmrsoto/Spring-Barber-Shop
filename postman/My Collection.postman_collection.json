@@ -4270,7 +4270,7 @@
       ]
     },
     {
-      "name": "85 · Crear usuario barbero de prueba",
+      "name": "85 · Crear usuario para la ficha de barbero",
       "request": {
         "method": "POST",
         "header": [
@@ -4291,7 +4291,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"nombre\": \"Barbero\",\n  \"apellido\": \"Borrable\",\n  \"correo\": \"barbero_{{$timestamp}}{{$randomInt}}@barberia.com\",\n  \"telefono\": \"04129876544\",\n  \"clave\": \"clave123\",\n  \"rol\": \"barbero\"\n}",
+          "raw": "{\n  \"nombre\": \"Barbero\",\n  \"apellido\": \"Borrable\",\n  \"correo\": \"barbero_{{$timestamp}}{{$randomInt}}@barberia.com\",\n  \"telefono\": \"04129876544\",\n  \"clave\": \"clave123\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -4317,7 +4317,7 @@
             "exec": [
               "pm.test('crea el usuario con 201', () => { pm.response.to.have.status(201); });",
               "const json = pm.response.json();",
-              "pm.test('nace con rol barbero', () => { pm.expect(json.usuario.rol).to.eql('barbero'); });",
+              "pm.test('nace como cliente', () => { pm.expect(json.usuario.rol).to.eql('cliente'); });",
               "pm.environment.set('usuarioBarberoPruebaID', json.usuario.usuarioID);"
             ]
           }
@@ -4325,7 +4325,7 @@
       ]
     },
     {
-      "name": "86 · Crear la ficha del barbero de prueba",
+      "name": "86 · La ficha asciende la cuenta a barbero",
       "request": {
         "method": "POST",
         "header": [
@@ -4372,6 +4372,7 @@
             "exec": [
               "pm.test('crea la ficha con 201', () => { pm.response.to.have.status(201); });",
               "const json = pm.response.json();",
+              "pm.test('la ficha queda activa', () => { pm.expect(json.barbero.estado).to.eql(true); });",
               "pm.environment.set('barberoIDPrueba', json.barbero.barberoID);"
             ]
           }
@@ -4379,7 +4380,53 @@
       ]
     },
     {
-      "name": "87 · El barbero no puede borrar barberos",
+      "name": "87 · La cuenta ya entra como barbero",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/api/usuarios/{{usuarioBarberoPruebaID}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "usuarios",
+            "{{usuarioBarberoPruebaID}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('devuelve el usuario', () => { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('quien tiene ficha entra como barbero', () => { pm.expect(json.usuario.rol).to.eql('barbero'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "88 · El barbero no puede borrar barberos",
       "request": {
         "method": "DELETE",
         "header": [
@@ -4423,7 +4470,7 @@
       ]
     },
     {
-      "name": "88 · El administrador borra al barbero",
+      "name": "89 · El administrador borra al barbero",
       "request": {
         "method": "DELETE",
         "header": [
@@ -4474,7 +4521,53 @@
       ]
     },
     {
-      "name": "89 · Borrar el usuario de prueba",
+      "name": "90 · Al borrar la ficha, la cuenta vuelve a cliente",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAdmin}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/api/usuarios/{{usuarioBarberoPruebaID}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "usuarios",
+            "{{usuarioBarberoPruebaID}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('devuelve el usuario', () => { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('sin ficha vuelve a ser cliente', () => { pm.expect(json.usuario.rol).to.eql('cliente'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "91 · Borrar el usuario de prueba",
       "request": {
         "method": "DELETE",
         "header": [

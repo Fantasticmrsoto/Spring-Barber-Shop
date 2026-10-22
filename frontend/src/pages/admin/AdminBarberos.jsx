@@ -86,6 +86,7 @@ export default function AdminBarberos() {
         comision: Number(form.comision),
         estado: form.estado,
       })
+      setAviso('Barbero agregado. Esa cuenta ya entra directamente a su panel de barbero.')
       setForm({ usuarioID: '', comision: '20', estado: true })
       setRecarga((n) => n + 1)
     } catch (err) {
@@ -369,6 +370,9 @@ export default function AdminBarberos() {
                   </option>
                 ))}
               </select>
+              <span className="mt-2 block text-xs font-normal normal-case tracking-normal text-cream-200/50">
+                Al agregarlo, su cuenta pasa a rol barbero y entra directo a su panel.
+              </span>
             </label>
             <label className={`mt-3 ${etiqueta}`}>
               Comisión (%)

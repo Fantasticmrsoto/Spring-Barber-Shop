@@ -50,7 +50,7 @@ export default function Registro() {
 
     setEnviando(true)
     try {
-      const { citasVinculadas } = await crearUsuario({
+      await crearUsuario({
         nombre: form.nombre.trim(),
         apellido: form.apellido.trim(),
         correo: form.correo.trim(),
@@ -58,11 +58,11 @@ export default function Registro() {
         clave: form.clave,
         rol: 'cliente',
       })
-      // Tras registrar, se inicia sesión automáticamente.
+      // Tras registrar, se inicia sesión automáticamente y se entra directo al
+      // panel del cliente, sin pasar por el login. Si su teléfono tenía citas
+      // de invitado, ya quedaron vinculadas y las verá ahí mismo.
       await iniciarSesion(form.correo.trim(), form.clave)
-      // Si su teléfono tenía citas de invitado, ya quedaron vinculadas: lo llevamos
-      // a "Mis citas" para que las vea.
-      navigate(citasVinculadas > 0 ? '/mis-citas' : '/reservar', { replace: true })
+      navigate('/mis-citas', { replace: true })
     } catch (err) {
       setError(mensajeDeError(err))
     } finally {
